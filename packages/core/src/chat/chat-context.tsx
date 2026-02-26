@@ -529,7 +529,8 @@ export function ChatProvider({
           try {
             const meta = await adapterRef.current.getDocumentMetadata();
             if (meta) {
-              promptContent = `<doc_context>\n${JSON.stringify(meta.metadata, null, 2)}\n</doc_context>\n\n${content}`;
+              const tag = adapterRef.current.metadataTag || "doc_context";
+              promptContent = `<${tag}>\n${JSON.stringify(meta.metadata, null, 2)}\n</${tag}>\n\n${content}`;
               if (meta.nameMap) {
                 setState((prev) => ({ ...prev, nameMap: meta.nameMap! }));
               }

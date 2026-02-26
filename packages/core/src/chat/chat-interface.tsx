@@ -28,7 +28,7 @@ import { SettingsPanel } from "./settings-panel";
 import type { ChatTab } from "./types";
 
 type Theme = "light" | "dark";
-const THEME_KEY = "openexcel-theme";
+const THEME_KEY = "office-agents-theme";
 
 function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {

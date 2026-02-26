@@ -53,6 +53,7 @@ export function createExcelAdapter(): AppAdapter {
     tools: EXCEL_TOOLS,
 
     appName: "OpenExcel",
+    metadataTag: "wb_context",
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to interact with your Excel data",
 

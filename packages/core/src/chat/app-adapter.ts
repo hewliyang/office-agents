@@ -22,6 +22,7 @@ export interface AppAdapter {
     nameMap?: Record<number, string>;
   } | null>;
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
+  metadataTag?: string;
   storagePrefix?: string;
   appVersion?: string;
   appName?: string;

@@ -116,13 +116,14 @@ Each Office app implements the `AppAdapter` interface from `@office-agents/core`
 
 ```typescript
 interface AppAdapter {
-  tools: AgentTool[];                           // App-specific tools
-  buildSystemPrompt: (skills) => string;        // System prompt
-  getDocumentId: () => Promise<string>;         // Unique doc ID for sessions
-  getDocumentMetadata?: () => Promise<...>;     // Injected into each prompt
-  onToolResult?: (id, result, isError) => void; // Follow-mode, navigation
-  handleLink?: (href) => (() => void) | null;   // Citation link handling
-  renderToolExtras?: (name, result) => ReactNode; // Tool call UI extras
+  tools: AgentTool[];                               // App-specific tools
+  buildSystemPrompt: (skills) => string;            // System prompt
+  getDocumentId: () => Promise<string>;             // Unique doc ID for sessions
+  getDocumentMetadata?: () => Promise<...>;         // Injected into each prompt
+  onToolResult?: (id, result, isError) => void;     // Follow-mode, navigation
+  metadataTag?: string;                             // XML tag for metadata (default: "doc_context")
+  Link?: ComponentType<LinkProps>;                  // Custom markdown link component
+  ToolExtras?: ComponentType<ToolExtrasProps>;      // Extra UI in tool call blocks
   appName?: string;
   appVersion?: string;
   emptyStateMessage?: string;
@@ -133,7 +134,7 @@ The core `ChatInterface` component accepts an adapter and handles all generic ch
 
 ### Excel Adapter
 
-The Excel adapter (`packages/excel/src/lib/adapter.ts`):
+The Excel adapter (`packages/excel/src/lib/adapter.tsx`):
 - Registers `EXCEL_TOOLS` (16 Excel tools + bash + read from core)
 - Builds Excel-specific system prompt with tool docs and citation syntax
 - Provides workbook metadata (sheet names, used ranges) per prompt
@@ -177,12 +178,14 @@ Releases are triggered by pushing a version tag. CI runs quality checks, deploys
 
 ## Configuration Storage
 
-User settings stored in browser localStorage:
+User settings stored in browser localStorage (legacy `openexcel-` prefix, see TODO.md):
 
-| Key                         | Contents                                                                                           |
-| --------------------------- | -------------------------------------------------------------------------------------------------- |
-| `openexcel-provider-config` | `{ provider, apiKey, model, useProxy, proxyUrl, thinking, followMode, apiType, customBaseUrl, authMethod }` |
-| `openexcel-oauth-credentials` | `{ [provider]: { refresh, access, expires } }`                                                   |
+| Key                            | Contents                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `openexcel-provider-config`    | `{ provider, apiKey, model, useProxy, proxyUrl, thinking, followMode, apiType, customBaseUrl, authMethod }` |
+| `openexcel-oauth-credentials`  | `{ [provider]: { refresh, access, expires } }`                                                   |
+| `openexcel-web-config`         | `{ searchProvider, fetchProvider, apiKeys }` |
+| `office-agents-theme`          | `"light"` or `"dark"` |
 
 Session data (messages, VFS files, skills) stored in IndexedDB via `idb` (`OpenExcelDB_v3`).
 
