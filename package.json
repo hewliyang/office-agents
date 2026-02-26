@@ -11,7 +11,7 @@
     "lint": "biome check packages/core/src packages/excel/src packages/excel/vite.config.ts",
     "lint:fix": "biome check --write packages/core/src packages/excel/src packages/excel/vite.config.ts",
     "format": "biome format --write packages/core/src packages/excel/src packages/excel/vite.config.ts",
-    "test": "vitest run",
+    "test": "pnpm -r test",
     "typecheck": "tsc -b packages/core packages/excel",
     "check": "tsc -b packages/core packages/excel && biome check packages/",
     "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sandboxedEval } from "../src/lib/sandbox";
+import { sandboxedEval } from "../src/sandbox";
 
 describe("sandboxedEval", () => {
   describe("basic execution", () => {

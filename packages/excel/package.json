@@ -14,7 +14,8 @@
     "dev-server": "vite --mode development",
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
-    "watch": "vite build --mode development --watch"
+    "watch": "vite build --mode development --watch",
+    "test": "vitest run"
   },
   "dependencies": {
     "@office-agents/core": "workspace:*",
