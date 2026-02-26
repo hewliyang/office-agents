@@ -2,7 +2,11 @@
 
 ## Project Overview
 
-**OpenExcel** is a Microsoft Office Excel Add-in with an integrated AI chat interface. Users can chat with LLM providers (OpenAI, Anthropic, Google, etc.) directly within Excel using their own API keys (BYOK). The agent has Excel read/write tools, a sandboxed bash shell, and a virtual filesystem for file uploads.
+**Office Agents** is a pnpm monorepo containing Microsoft Office Add-ins with integrated AI chat interfaces. Users can chat with LLM providers (OpenAI, Anthropic, Google, etc.) directly within Office apps using their own API keys (BYOK). The agent has Office read/write tools, a sandboxed bash shell, and a virtual filesystem for file uploads.
+
+Currently contains:
+- **@office-agents/core** — Shared chat UI, BYOK auth, storage, VFS, skills, and agent lifecycle
+- **@office-agents/excel** — Excel-specific tools, Office.js wrappers, and system prompt
 
 ## Tech Stack
 
@@ -15,151 +19,149 @@
 - **LLM Integration**: `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core` (unified LLM & agent API)
 - **Virtual Filesystem / Bash**: `just-bash` (in-memory VFS + shell)
 - **Dev Server**: Vite dev server with HTTPS
+- **Monorepo**: pnpm workspaces
 
 ## Project Structure
 
 ```
-open-excel/
-├── src/
-│   ├── taskpane/
-│   │   ├── components/
-│   │   │   ├── app.tsx              # Root component
-│   │   │   └── chat/                # AI Chat UI
-│   │   │       ├── index.ts         # Exports
-│   │   │       ├── types.ts         # Type definitions
-│   │   │       ├── chat-interface.tsx   # Main chat with tabs, drag-and-drop
-│   │   │       ├── chat-context.tsx     # State, agent lifecycle, file uploads
-│   │   │       ├── message-list.tsx     # Message renderer with tool calls
-│   │   │       ├── chat-input.tsx       # Input with file upload button
-│   │   │       └── settings-panel.tsx   # Provider/model/auth/skills config
-│   │   ├── index.tsx                # React entry point
-│   │   ├── index.css                # Tailwind + CSS variables
-│   │   └── lockdown.ts             # SES lockdown for Office.js
-│   ├── lib/
-│   │   ├── tools/                   # Agent tools
-│   │   │   ├── index.ts            # Tool registry (EXCEL_TOOLS)
-│   │   │   ├── types.ts            # Tool definition helpers
-│   │   │   ├── bash.ts             # Sandboxed bash execution
-│   │   │   ├── read-file.ts        # VFS file reader (text + images)
-│   │   │   ├── get-cell-ranges.ts  # Read cell data
-│   │   │   ├── get-range-as-csv.ts # Export range as CSV
-│   │   │   ├── set-cell-range.ts   # Write cell data
-│   │   │   ├── clear-cell-range.ts # Clear cells
-│   │   │   ├── copy-to.ts          # Copy ranges
-│   │   │   ├── resize-range.ts     # Resize ranges
-│   │   │   ├── search-data.ts      # Search sheet data
-│   │   │   ├── get-all-objects.ts  # List charts/tables/pivots
-│   │   │   ├── modify-object.ts    # Modify charts/tables
-│   │   │   ├── modify-sheet-structure.ts  # Sheet operations
-│   │   │   ├── modify-workbook-structure.ts # Workbook operations
-│   │   │   └── eval-officejs.ts    # Raw Office.js eval
-│   │   ├── vfs/                    # Virtual filesystem
-│   │   │   ├── index.ts            # VFS singleton, file ops, snapshot/restore
-│   │   │   └── custom-commands.ts  # CLI commands (csv-to-sheet, pdf-to-text, etc.)
-│   │   ├── excel/                  # Excel API wrappers
-│   │   │   ├── api.ts             # Core Excel operations
-│   │   │   ├── sheet-id-map.ts    # Sheet ID tracking
-│   │   │   └── tracked-context.ts # Dirty range tracking
-│   │   ├── oauth/index.ts          # OAuth PKCE (Anthropic, OpenAI Codex)
-│   │   ├── skills/index.ts         # Skill install/uninstall/prompt injection
-│   │   ├── storage/
-│   │   │   ├── db.ts              # IndexedDB via idb (sessions, VFS files, skills)
-│   │   │   └── index.ts           # Storage re-exports
-│   │   ├── provider-config.ts      # Provider config load/save, custom endpoints
-│   │   ├── message-utils.ts        # AgentMessage → ChatMessage conversion, stats
-│   │   ├── truncate.ts             # Output truncation (head/tail, line/byte limits)
-│   │   ├── dirty-tracker.ts        # Track modified cell ranges
-│   │   └── sandbox.ts              # Sandboxing utilities
-│   ├── shims/
-│   │   └── util-types-shim.js      # Browser shim for node:util/types
-│   ├── commands/
-│   │   └── commands.ts             # Ribbon command handlers
-│   ├── taskpane.html               # Taskpane HTML template
-│   ├── commands.html               # Commands HTML template
-│   └── global.d.ts                 # Global type declarations
+office-agents/
+├── pnpm-workspace.yaml
+├── package.json                     # Root scripts (typecheck, lint, build)
+├── biome.json                       # Shared linter/formatter config
+├── tsconfig.json                    # Root tsconfig with project references
+├── packages/
+│   ├── core/                        # @office-agents/core — shared library
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── src/
+│   │       ├── index.ts             # Main exports
+│   │       ├── index.css            # CSS variables + markdown styles
+│   │       ├── lockdown.ts          # SES lockdown for Office.js
+│   │       ├── sandbox.ts           # Sandboxed eval via SES Compartment
+│   │       ├── message-utils.ts     # AgentMessage → ChatMessage, stats
+│   │       ├── provider-config.ts   # Provider config load/save, custom endpoints
+│   │       ├── truncate.ts          # Output truncation (head/tail)
+│   │       ├── chat/                # Chat UI components (React)
+│   │       │   ├── index.ts
+│   │       │   ├── app-adapter.ts   # AppAdapter interface (tools, prompt, hooks)
+│   │       │   ├── chat-context.tsx # State, agent lifecycle, streaming
+│   │       │   ├── chat-interface.tsx # Tabs, sessions, drag-and-drop
+│   │       │   ├── chat-input.tsx   # Input with file upload
+│   │       │   ├── message-list.tsx # Message renderer with tool calls
+│   │       │   ├── settings-panel.tsx # Provider/model/auth/skills config
+│   │       │   ├── error-boundary.tsx
+│   │       │   └── types.ts
+│   │       ├── oauth/index.ts       # OAuth PKCE (Anthropic, OpenAI Codex)
+│   │       ├── storage/             # IndexedDB (sessions, VFS files, skills)
+│   │       │   ├── db.ts
+│   │       │   └── index.ts
+│   │       ├── vfs/index.ts         # Virtual filesystem (just-bash)
+│   │       ├── skills/index.ts      # Skill install/uninstall/prompt injection
+│   │       ├── tools/               # Shared tools
+│   │       │   ├── types.ts         # defineTool, ToolResult helpers
+│   │       │   ├── bash.ts          # Sandboxed bash execution
+│   │       │   └── read-file.ts     # VFS file reader (text + images)
+│   │       └── web/                 # Web search & fetch providers
+│   │           ├── types.ts
+│   │           ├── config.ts
+│   │           ├── search.ts
+│   │           └── fetch.ts
+│   │
+│   └── excel/                       # @office-agents/excel — Excel add-in
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── vite.config.ts
+│       ├── manifest.xml             # Office Add-in manifest (dev)
+│       ├── manifest.prod.xml        # Office Add-in manifest (prod)
+│       ├── manifest.json            # Unified manifest
+│       └── src/
+│           ├── taskpane.html
+│           ├── taskpane/
+│           │   ├── index.tsx        # React entry point
+│           │   ├── index.css        # Tailwind config
+│           │   └── components/
+│           │       └── app.tsx      # Wires core ChatInterface with Excel adapter
+│           ├── lib/
+│           │   ├── adapter.ts       # Excel AppAdapter (tools, prompt, follow mode)
+│           │   ├── dirty-tracker.ts # Track modified cell ranges
+│           │   ├── tools/           # Excel-specific tools
+│           │   │   ├── index.ts     # EXCEL_TOOLS array
+│           │   │   ├── types.ts     # defineTool with DirtyRange tracking
+│           │   │   ├── eval-officejs.ts
+│           │   │   ├── get-cell-ranges.ts
+│           │   │   ├── set-cell-range.ts
+│           │   │   └── ...          # Other Excel tools
+│           │   ├── excel/           # Excel API wrappers
+│           │   │   ├── api.ts
+│           │   │   ├── sheet-id-map.ts
+│           │   │   └── tracked-context.ts
+│           │   └── vfs/
+│           │       └── custom-commands.ts  # csv-to-sheet, sheet-to-csv, etc.
+│           ├── commands/
+│           │   └── commands.ts
+│           └── shims/
+│               └── util-types-shim.js
 ├── .plan/                           # Development plans
-├── assets/                          # Icons
-├── CHANGELOG.md                     # Release changelog
-├── manifest.xml                     # Office Add-in manifest (dev)
-├── manifest.prod.xml                # Office Add-in manifest (prod)
-├── manifest.json                    # Unified manifest
-├── vite.config.ts                   # Vite config + node polyfills
-└── package.json
+├── CHANGELOG.md
+└── .github/workflows/
+    ├── ci.yml
+    └── release.yml
 ```
 
-## Key Components
+## Key Architecture
 
-### Chat System (`src/taskpane/components/chat/`)
+### AppAdapter Pattern
 
-| File                 | Purpose                                                        |
-| -------------------- | -------------------------------------------------------------- |
-| `chat-interface.tsx` | Tab navigation, session dropdown, drag-and-drop overlay        |
-| `chat-context.tsx`   | React context, agent lifecycle, streaming, file upload, skills |
-| `message-list.tsx`   | Renders messages with tool call status, thinking blocks        |
-| `chat-input.tsx`     | Input with file picker, upload chips, send/abort buttons       |
-| `settings-panel.tsx` | Provider/model/auth config, CORS proxy, thinking, skills UI    |
+Each Office app implements the `AppAdapter` interface from `@office-agents/core`:
 
-### Agent Tools (`src/lib/tools/`)
-
-Tools are registered in `EXCEL_TOOLS` array in `index.ts`. Two categories:
-
-- **File & Bash**: `read` (VFS file reader), `bash` (sandboxed shell)
-- **Excel**: cell read/write, CSV export, search, chart/table/pivot operations, sheet/workbook structure
-
-### Virtual Filesystem (`src/lib/vfs/`)
-
-In-memory filesystem via `just-bash/browser`. User uploads go to `/home/user/uploads/`, skills mount at `/home/skills/{name}/`. VFS state is snapshot/restored per session in IndexedDB.
-
-Custom CLI commands bridge VFS ↔ Excel: `csv-to-sheet`, `sheet-to-csv`, `pdf-to-text`, `docx-to-text`, `xlsx-to-csv`.
-
-### CSS Variables (Dark Theme)
-
-```css
---chat-font-mono      /* Monospace font stack */
---chat-bg             /* #0a0a0a */
---chat-border         /* #2a2a2a */
---chat-text-primary   /* #e8e8e8 */
---chat-accent         /* #6366f1 (indigo) */
---chat-radius         /* 2px (boxy style) */
+```typescript
+interface AppAdapter {
+  tools: AgentTool[];                           // App-specific tools
+  buildSystemPrompt: (skills) => string;        // System prompt
+  getDocumentId: () => Promise<string>;         // Unique doc ID for sessions
+  getDocumentMetadata?: () => Promise<...>;     // Injected into each prompt
+  onToolResult?: (id, result, isError) => void; // Follow-mode, navigation
+  handleLink?: (href) => (() => void) | null;   // Citation link handling
+  renderToolExtras?: (name, result) => ReactNode; // Tool call UI extras
+  appName?: string;
+  appVersion?: string;
+  emptyStateMessage?: string;
+}
 ```
 
-## LLM Integration
+The core `ChatInterface` component accepts an adapter and handles all generic chat UI, agent lifecycle, sessions, settings, file uploads, and skills.
 
-### Supported Providers (via pi-ai)
+### Excel Adapter
 
-- OpenAI, Azure OpenAI, OpenAI Codex
-- Anthropic (Claude) — API key or OAuth (Pro/Max)
-- Google (Gemini), Google Vertex AI
-- OpenRouter, Groq, xAI, Cerebras, Mistral
-- **Custom endpoints** — any OpenAI-compatible API (Ollama, vLLM, LMStudio, etc.)
+The Excel adapter (`packages/excel/src/lib/adapter.ts`):
+- Registers `EXCEL_TOOLS` (16 Excel tools + bash + read from core)
+- Builds Excel-specific system prompt with tool docs and citation syntax
+- Provides workbook metadata (sheet names, used ranges) per prompt
+- Handles follow-mode navigation to dirty ranges after tool execution
+- Handles `#cite:sheetId!range` links in markdown
 
-### Authentication
+### VFS Custom Commands
 
-- **API Key (BYOK)**: Direct key entry for all providers
-- **OAuth**: Anthropic (Claude Pro/Max) and OpenAI Codex (ChatGPT Plus/Pro) via PKCE flow
-
-### CORS Proxy
-
-Some providers require a CORS proxy for browser requests. Users configure their own proxy URL in settings. The proxy should accept `?url={encodedApiUrl}` format.
+App-specific VFS commands are registered via `setCustomCommands()` from core. Excel registers: `csv-to-sheet`, `sheet-to-csv`, `pdf-to-text`, `docx-to-text`, `xlsx-to-csv`, `image-to-sheet`, `web-search`, `web-fetch`.
 
 ## Development Commands
 
 ```bash
-pnpm install             # Install dependencies
-pnpm dev-server          # Start dev server (https://localhost:3000)
+pnpm install             # Install all dependencies
+pnpm dev-server          # Start Excel dev server (https://localhost:3000)
 pnpm start               # Launch Excel with add-in sideloaded
-pnpm build               # Production build
-pnpm build:dev           # Development build
+pnpm build               # Build all packages
 pnpm lint                # Run Biome linter
 pnpm format              # Format code with Biome
-pnpm typecheck           # TypeScript type checking
+pnpm typecheck           # TypeScript type checking (all packages)
 pnpm check               # Typecheck + lint
+pnpm validate            # Validate Office manifests
 ```
 
 ## Code Style
 
 - Formatter/linter: Biome
-- No JSDoc comments on functions (keep code clean)
+- No JSDoc comments on functions
 - Run `pnpm format` before committing
 
 ## Release Workflow
@@ -168,17 +170,10 @@ Releases are triggered by pushing a version tag. CI runs quality checks, deploys
 
 ### Steps
 
-1. Update `CHANGELOG.md` — move `[Unreleased]` contents to a new `[x.y.z]` section, add fresh `[Unreleased]` header
-2. Bump version and tag:
-   ```bash
-   pnpm version patch       # or minor/major — updates package.json, creates git tag
-   git push && git push --tags
-   ```
-3. CI (`.github/workflows/release.yml`):
-   1. Runs typecheck, lint, build
-   2. Extracts changelog section for the tagged version from `CHANGELOG.md`
-   3. Deploys to Cloudflare Pages
-   4. Creates GitHub release with the extracted changelog
+1. Update `CHANGELOG.md`
+2. Bump version: `pnpm version patch` (or minor/major)
+3. Push: `git push && git push --tags`
+4. CI deploys `packages/excel/dist` to Cloudflare Pages
 
 ## Configuration Storage
 
@@ -201,10 +196,6 @@ await Excel.run(async (context) => {
   await context.sync();
 });
 ```
-
-## Future Development
-
-See `.plan/` directory for roadmap and progress tracking.
 
 ## References
 

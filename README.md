@@ -1,23 +1,21 @@
 # open-excel
 
-OpenExcel is an Excel add-in with an AI chat panel. It connects to major LLM providers using your own credentials (BYOK), and can read/write spreadsheets through built-in tools.
+OpenExcel is an Excel add-in which provides an AI chat panel. It connects to major LLM providers using your own credentials (BYOK), and can read/write spreadsheets through built-in tools.
 
 https://github.com/user-attachments/assets/50f3ba42-4daa-49d8-b31e-bae9be6e225b
 
-> Reference: Claude for Excel prompt/tool protocol notes are documented at [hewliyang/reversing/claude-for-excel](https://github.com/hewliyang/reversing/tree/main/claude-for-excel).
-
 ## Install (End Users)
 
-Download [`manifest.prod.xml`](./manifest.prod.xml), then follow the instructions for your platform:
+Download [`packages/excel/manifest.prod.xml`](./packages/excel/manifest.prod.xml), then follow the instructions for your platform:
 
 ### Windows
 1. **Insert** → **Add-ins** → **My Add-ins**
 2. **Upload My Add-in**
-3. Select `manifest.prod.xml`
+3. Select `packages/excel/manifest.prod.xml`
 4. Open **Open Excel Chat** from the ribbon
 
 ### macOS
-1. Copy `manifest.prod.xml` to:
+1. Copy `packages/excel/manifest.prod.xml` to:
    `~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/`
 2. Restart Excel
 3. **Insert** → **Add-ins** → **My Add-ins**
@@ -27,7 +25,7 @@ Download [`manifest.prod.xml`](./manifest.prod.xml), then follow the instruction
 1. Open [excel.office.com](https://excel.office.com)
 2. **Insert** → **Add-ins** → **More Add-ins**
 3. **Upload My Add-in**
-4. Upload `manifest.prod.xml`
+4. Upload `packages/excel/manifest.prod.xml`
 
 ## Tools
 

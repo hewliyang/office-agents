@@ -35,21 +35,19 @@ jobs:
         id: changelog
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          # Extract the section between ## [x.y.z] and the next ## [
           NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             echo "::warning::No changelog entry found for ${VERSION}, falling back to Unreleased"
             NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
           fi
-          # Write to file to avoid escaping issues
           echo "$NOTES" > /tmp/release-notes.md
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Excel to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=openexcel --branch=main --commit-dirty=true
+          command: pages deploy packages/excel/dist --project-name=openexcel --branch=main --commit-dirty=true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
