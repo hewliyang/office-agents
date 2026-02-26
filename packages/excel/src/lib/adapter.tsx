@@ -1,11 +1,18 @@
-import type { AppAdapter, LinkProps } from "@office-agents/core";
+import type {
+  AppAdapter,
+  LinkProps,
+  ToolExtrasProps,
+} from "@office-agents/core";
 import {
   buildSkillsPromptSection,
   getOrCreateWorkbookId,
   type SkillMeta,
   setCustomCommands,
+  useChat,
 } from "@office-agents/core";
-import type { DirtyRange } from "./dirty-tracker";
+import { Edit3 } from "lucide-react";
+import { useMemo } from "react";
+import { type DirtyRange, mergeRanges } from "./dirty-tracker";
 import { getWorkbookMetadata, navigateTo } from "./excel/api";
 import { EXCEL_TOOLS } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
@@ -146,6 +153,7 @@ ${buildSkillsPromptSection(skills)}
     },
 
     Link: CitationLink,
+    ToolExtras: DirtyRangeExtras,
   };
 }
 
@@ -170,5 +178,99 @@ function CitationLink({ href, children }: LinkProps) {
     <a href={href} target="_blank" rel="noopener noreferrer">
       {children}
     </a>
+  );
+}
+
+function DirtyRangeExtras({ result, expanded }: ToolExtrasProps) {
+  const { getName } = useChat();
+  const ranges = useMemo(() => parseDirtyRanges(result), [result]);
+  const merged = useMemo(() => (ranges ? mergeRanges(ranges) : []), [ranges]);
+  const valid = useMemo(
+    () => merged.filter((r) => r.sheetId < 0 || getName(r.sheetId)),
+    [merged, getName],
+  );
+
+  if (valid.length === 0) return null;
+
+  if (expanded) {
+    return (
+      <>
+        <Edit3 size={9} className="shrink-0" />
+        <span className="shrink-0">Modified:</span>
+        {valid.map((r, i) => (
+          <span key={`${r.sheetId}-${r.range}`}>
+            {i > 0 && <span className="text-(--chat-warning-muted)">, </span>}
+            <DirtyRangeLink range={r} />
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 text-(--chat-warning) shrink-0">
+      <Edit3 size={9} />
+      <DirtyRangeSummary ranges={valid} />
+    </span>
+  );
+}
+
+function DirtyRangeLink({ range }: { range: DirtyRange }) {
+  const { getName } = useChat();
+  const sheetName = getName(range.sheetId);
+
+  if (range.sheetId < 0) {
+    const label =
+      range.range === "*" ? "Unknown sheet" : `Unknown!${range.range}`;
+    return <span className="text-(--chat-warning-muted)">{label}</span>;
+  }
+
+  if (!sheetName) return null;
+
+  const label =
+    range.range === "*" ? `${sheetName} (all)` : `${sheetName}!${range.range}`;
+
+  return (
+    <button
+      type="button"
+      className="text-(--chat-warning) hover:underline cursor-pointer"
+      onClick={(e) => {
+        e.stopPropagation();
+        const navRange = range.range === "*" ? undefined : range.range;
+        navigateTo(range.sheetId, navRange).catch(console.error);
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function DirtyRangeSummary({ ranges }: { ranges: DirtyRange[] }) {
+  const { getName } = useChat();
+
+  if (ranges.length === 1) {
+    const r = ranges[0];
+    if (r.sheetId < 0) {
+      const brief = r.range === "*" ? "unknown" : r.range;
+      return (
+        <span className="text-[10px] text-(--chat-warning) truncate">
+          → {brief}
+        </span>
+      );
+    }
+    const sheetName = getName(r.sheetId);
+    if (!sheetName) return null;
+    const brief = r.range === "*" ? sheetName : r.range;
+    return (
+      <span className="text-[10px] text-(--chat-warning) truncate">
+        → {brief}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-[10px] text-(--chat-warning)">
+      → {ranges.length} ranges
+    </span>
   );
 }

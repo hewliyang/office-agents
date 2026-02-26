@@ -52,9 +52,6 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
   const explanation = (part.args as { explanation?: string })?.explanation;
 
   const ToolExtras = adapter.ToolExtras;
-  const toolExtras = ToolExtras ? (
-    <ToolExtras toolName={part.name} result={part.result} />
-  ) : null;
 
   const statusIcon = {
     pending: (
@@ -79,14 +76,24 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
         <span className="flex-1 text-left font-medium truncate">
           {explanation || part.name}
         </span>
-        {!isExpanded && toolExtras}
+        {!isExpanded && ToolExtras && (
+          <ToolExtras
+            toolName={part.name}
+            result={part.result}
+            expanded={false}
+          />
+        )}
         {statusIcon}
       </button>
       {isExpanded && (
         <div className="border-t border-(--chat-border)">
-          {toolExtras && (
+          {ToolExtras && (
             <div className="px-2 py-1 text-[10px] bg-(--chat-warning-bg) text-(--chat-warning) flex items-center gap-1 flex-wrap">
-              {toolExtras}
+              <ToolExtras
+                toolName={part.name}
+                result={part.result}
+                expanded={true}
+              />
             </div>
           )}
           <div className="px-2 py-1.5 text-xs">

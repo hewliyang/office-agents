@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@office-agents/core": "workspace:*",
+    "lucide-react": "^0.563.0",
     "@mariozechner/pi-agent-core": "^0.54.0",
     "@mariozechner/pi-ai": "^0.54.0",
     "@sinclair/typebox": "^0.34.48",

@@ -5,6 +5,7 @@ import type { SkillMeta } from "../skills";
 export interface ToolExtrasProps {
   toolName: string;
   result?: string;
+  expanded: boolean;
 }
 
 export interface LinkProps {
