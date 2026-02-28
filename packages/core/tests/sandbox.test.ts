@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sandboxedEval } from "../src/sandbox";
+import { sandboxedEval } from "@office-agents/sdk";
 
 describe("sandboxedEval", () => {
   describe("basic execution", () => {
