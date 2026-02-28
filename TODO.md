@@ -1,2 +1,0 @@
-- Publish @office-agents/sdk to NPM
-- Presentation shit
