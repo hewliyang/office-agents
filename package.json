@@ -5,16 +5,19 @@
   "license": "MIT",
   "scripts": {
     "build": "pnpm -r build",
-    "dev-server": "pnpm --filter @office-agents/excel dev-server",
-    "start": "pnpm --filter @office-agents/excel start",
-    "stop": "pnpm --filter @office-agents/excel stop",
-    "lint": "biome check packages/core/src packages/excel/src packages/excel/vite.config.ts",
-    "lint:fix": "biome check --write packages/core/src packages/excel/src packages/excel/vite.config.ts",
-    "format": "biome format --write packages/core/src packages/excel/src packages/excel/vite.config.ts",
+    "dev-server:excel": "pnpm --filter @office-agents/excel dev-server",
+    "dev-server:ppt": "pnpm --filter @office-agents/powerpoint dev-server",
+    "start:excel": "pnpm --filter @office-agents/excel start",
+    "start:ppt": "pnpm --filter @office-agents/powerpoint start",
+    "stop:excel": "pnpm --filter @office-agents/excel stop",
+    "stop:ppt": "pnpm --filter @office-agents/powerpoint stop",
+    "lint": "biome check packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
+    "lint:fix": "biome check --write packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
+    "format": "biome format --write packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
     "test": "pnpm -r test",
-    "typecheck": "tsc -b packages/core packages/excel",
-    "check": "tsc -b packages/core packages/excel && biome check packages/",
-    "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml"
+    "typecheck": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint",
+    "check": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint && biome check packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
+    "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.prod.xml"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",

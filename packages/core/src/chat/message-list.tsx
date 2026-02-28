@@ -1,3 +1,4 @@
+import type { ChatMessage, MessagePart } from "@office-agents/sdk";
 import { code } from "@streamdown/code";
 import {
   Brain,
@@ -11,7 +12,6 @@ import {
 import type { AnchorHTMLAttributes } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
-import type { ChatMessage, MessagePart } from "../message-utils";
 import { useChat } from "./chat-context";
 
 function ThinkingBlock({

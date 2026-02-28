@@ -5,14 +5,14 @@ import type {
 } from "@office-agents/core";
 import {
   buildSkillsPromptSection,
-  getOrCreateWorkbookId,
+  getOrCreateDocumentId,
   type SkillMeta,
-  setCustomCommands,
   useChat,
 } from "@office-agents/core";
 import { Edit3 } from "lucide-react";
 import { useMemo } from "react";
 import { type DirtyRange, mergeRanges } from "./dirty-tracker";
+import excelApiDts from "./docs/excel-officejs-api.d.ts?raw";
 import { getWorkbookMetadata, navigateTo } from "./excel/api";
 import { EXCEL_TOOLS } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
@@ -46,11 +46,12 @@ function parseCitationUri(
 }
 
 export function createExcelAdapter(): AppAdapter {
-  // Register Excel-specific VFS custom commands
-  setCustomCommands(getCustomCommands);
-
   return {
     tools: EXCEL_TOOLS,
+    customCommands: getCustomCommands,
+    staticFiles: {
+      "/home/user/docs/excel-officejs-api.d.ts": excelApiDts,
+    },
 
     appName: "OpenExcel",
     metadataTag: "wb_context",
@@ -59,6 +60,11 @@ export function createExcelAdapter(): AppAdapter {
 
     buildSystemPrompt: (skills: SkillMeta[]) => {
       return `You are an AI assistant integrated into Microsoft Excel with full access to read and modify spreadsheet data.
+
+## Office.js API Reference
+The complete Excel Office.js TypeScript definitions are available at \`/home/user/docs/excel-officejs-api.d.ts\`.
+When you need to use an API you're unsure about, use \`bash\` to grep this file, e.g.:
+\`grep -A 20 "class PivotTable" /home/user/docs/excel-officejs-api.d.ts\`
 
 Available tools:
 
@@ -110,6 +116,8 @@ EXCEL WRITE:
 - resize_range: Adjust column widths and row heights
 - modify_object: Create/update/delete charts and pivot tables
 
+eval_officejs has access to readFile(path) → Promise<string>, readFileBuffer(path) → Promise<Uint8Array>, and writeFile(path, content) → Promise<void> (content: string | Uint8Array) for VFS files.
+
 Citations: Use markdown links with #cite: hash to reference sheets/cells. Clicking navigates there.
 - Sheet only: [Sheet Name](#cite:sheetId)
 - Cell/range: [A1:B10](#cite:sheetId!A1:B10)
@@ -122,7 +130,7 @@ ${buildSkillsPromptSection(skills)}
     },
 
     getDocumentId: async () => {
-      return getOrCreateWorkbookId();
+      return getOrCreateDocumentId();
     },
 
     getDocumentMetadata: async () => {

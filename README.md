@@ -1,72 +1,19 @@
-# open-excel
+# Office Agents
 
-OpenExcel is an Excel add-in which provides an AI chat panel. It connects to major LLM providers using your own credentials (BYOK), and can read/write spreadsheets through built-in tools.
+Office Agents is a monorepo of Microsoft Office Add-ins with integrated AI chat panels. Each add-in connects to major LLM providers using your own credentials (BYOK) and can read/write documents through built-in tools, a sandboxed shell, and a virtual filesystem.
 
 https://github.com/user-attachments/assets/50f3ba42-4daa-49d8-b31e-bae9be6e225b
 
-## Install (End Users)
+## Packages
 
-Download [`packages/excel/manifest.prod.xml`](./packages/excel/manifest.prod.xml), then follow the instructions for your platform:
+| Package | Description |
+|---------|-------------|
+| [`@office-agents/sdk`](./packages/sdk) | Headless SDK — agent runtime, tools, storage, VFS, skills, OAuth, web search |
+| [`@office-agents/core`](./packages/core) | Chat UI (React) — re-exports SDK + chat components, settings, sessions |
+| [`@office-agents/excel`](./packages/excel) | Excel Add-in — spreadsheet tools, Office.js wrappers, system prompt |
+| [`@office-agents/powerpoint`](./packages/powerpoint) | PowerPoint Add-in — slide/OOXML tools, Office.js wrappers, system prompt |
 
-### Windows
-1. **Insert** → **Add-ins** → **My Add-ins**
-2. **Upload My Add-in**
-3. Select `packages/excel/manifest.prod.xml`
-4. Open **Open Excel Chat** from the ribbon
-
-### macOS
-1. Copy `packages/excel/manifest.prod.xml` to:
-   `~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/`
-2. Restart Excel
-3. **Insert** → **Add-ins** → **My Add-ins**
-4. Select **OpenExcel**
-
-### Excel Web
-1. Open [excel.office.com](https://excel.office.com)
-2. **Insert** → **Add-ins** → **More Add-ins**
-3. **Upload My Add-in**
-4. Upload `packages/excel/manifest.prod.xml`
-
-## Tools
-
-### Excel tools
-
-| Tool | What it does |
-|------|---------------|
-| `get_cell_ranges` | Read cell values, formulas, and formats |
-| `get_range_as_csv` | Export a range as CSV for analysis |
-| `search_data` | Search worksheet data by text |
-| `screenshot_range` | Capture a range as an image |
-| `get_all_objects` | List tables, charts, pivots, and other objects |
-| `set_cell_range` | Write values/formulas/formats to cells |
-| `clear_cell_range` | Clear cell contents and/or formatting |
-| `copy_to` | Copy ranges with formula translation |
-| `modify_sheet_structure` | Insert/delete/hide rows/columns, freeze panes |
-| `modify_workbook_structure` | Create/delete/rename/reorder sheets |
-| `resize_range` | Resize row heights and column widths |
-| `modify_object` | Create/update/delete charts/tables/pivots |
-| `eval_officejs` | Run raw Office.js inside Excel.run (sandboxed) |
-
-### File & shell tools
-
-| Tool | What it does |
-|------|---------------|
-| `read` | Read text files and images from the virtual filesystem |
-| `bash` | Run commands in the sandboxed shell |
-
-### Bash custom commands
-
-| Command | What it does |
-|---------|---------------|
-| `csv-to-sheet` | Import CSV from VFS to a worksheet |
-| `sheet-to-csv` | Export worksheet data to CSV |
-| `pdf-to-text` | Extract text from PDF files |
-| `pdf-to-images` | Render PDF pages to PNG images |
-| `docx-to-text` | Extract text from DOCX files |
-| `xlsx-to-csv` | Convert uploaded spreadsheet files to CSV |
-| `image-to-sheet` | Paint an image into Excel as pixel-art cells |
-| `web-search` | Search the web using configured provider |
-| `web-fetch` | Fetch web pages/files into VFS |
+See each package's README for install instructions and tool documentation.
 
 ## Skills
 
@@ -106,9 +53,17 @@ More often than not, `basic` fetch is good enough but requires a CORS proxy conf
 ## Development
 
 ```bash
-pnpm install
-pnpm start        # start dev server + sideload add-in
-pnpm stop         # stop sideloaded add-in
+pnpm install                # Install all dependencies
+pnpm dev-server:excel       # Start Excel dev server (https://localhost:3000)
+pnpm dev-server:ppt         # Start PowerPoint dev server (https://localhost:3001)
+pnpm start:excel            # Launch Excel with add-in sideloaded
+pnpm start:ppt              # Launch PowerPoint with add-in sideloaded
+pnpm build                  # Build all packages
+pnpm typecheck              # TypeScript type checking (all packages)
+pnpm lint                   # Run Biome linter
+pnpm format                 # Format code with Biome
+pnpm check                  # Typecheck + lint
+pnpm validate               # Validate Office manifests
 ```
 
 ## License

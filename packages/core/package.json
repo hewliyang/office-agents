@@ -14,21 +14,13 @@
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.54.0",
     "@mariozechner/pi-ai": "^0.54.0",
-    "@mozilla/readability": "^0.6.0",
-    "@sinclair/typebox": "^0.34.48",
-    "@streamdown/code": "^1.0.1",
-    "@types/turndown": "^5.0.6",
-    "idb": "^8.0.3",
+    "@office-agents/sdk": "workspace:*",
     "just-bash": "^2.7.0",
+    "@streamdown/code": "^1.0.1",
     "lucide-react": "^0.563.0",
-    "mammoth": "^1.11.0",
-    "pdfjs-dist": "^5.4.624",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "ses": "^1.14.0",
-    "streamdown": "^2.1.0",
-    "turndown": "^7.2.2",
-    "xlsx": "^0.18.5"
+    "streamdown": "^2.1.0"
   },
   "devDependencies": {
     "@types/office-js": "^1.0.377",

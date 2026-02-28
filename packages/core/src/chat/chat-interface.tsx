@@ -1,3 +1,4 @@
+import { getSessionMessageCount } from "@office-agents/sdk";
 import {
   Check,
   ChevronDown,
@@ -19,7 +20,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { getSessionMessageCount } from "../storage";
 import type { AppAdapter } from "./app-adapter";
 import { ChatProvider, useChat } from "./chat-context";
 import { ChatInput } from "./chat-input";
@@ -366,6 +366,12 @@ function ChatHeader({
   );
 }
 
+function SelectionIndicatorSlot() {
+  const { adapter } = useChat();
+  if (!adapter.SelectionIndicator) return null;
+  return <adapter.SelectionIndicator />;
+}
+
 function ChatContent() {
   const [activeTab, setActiveTab] = useState<ChatTab>("chat");
   const { theme, toggle } = useTheme();
@@ -429,6 +435,7 @@ function ChatContent() {
       {activeTab === "chat" ? (
         <>
           <MessageList />
+          <SelectionIndicatorSlot />
           <ChatInput />
           <StatsBar />
         </>

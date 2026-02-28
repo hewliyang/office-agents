@@ -1,0 +1,28 @@
+{
+  "name": "@office-agents/sdk",
+  "version": "0.2.4",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "^0.54.0",
+    "@mariozechner/pi-ai": "^0.54.0",
+    "@mozilla/readability": "^0.6.0",
+    "@sinclair/typebox": "^0.34.48",
+    "@types/turndown": "^5.0.6",
+    "idb": "^8.0.3",
+    "just-bash": "^2.7.0",
+    "mammoth": "^1.11.0",
+    "pdfjs-dist": "^5.4.624",
+    "ses": "^1.14.0",
+    "turndown": "^7.2.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/office-js": "^1.0.377"
+  }
+}

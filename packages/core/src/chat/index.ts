@@ -2,7 +2,7 @@ export type {
   ChatMessage,
   MessagePart,
   ToolCallStatus,
-} from "../message-utils";
+} from "@office-agents/sdk";
 export type { AppAdapter, LinkProps, ToolExtrasProps } from "./app-adapter";
 export type { ProviderConfig } from "./chat-context";
 export { ChatProvider, useChat } from "./chat-context";

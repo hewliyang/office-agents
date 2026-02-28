@@ -1,0 +1,57 @@
+import {
+  readFile,
+  readFileBuffer,
+  sandboxedEval,
+  writeFile,
+} from "@office-agents/core";
+import { Type } from "@sinclair/typebox";
+import { safeRun } from "../pptx/slide-zip";
+import { defineTool, toolError, toolSuccess } from "./types";
+
+/* global PowerPoint */
+
+export const executeOfficeJsTool = defineTool({
+  name: "execute_office_js",
+  label: "Execute Office.js Code",
+  description:
+    "Execute Office.js JavaScript code to interact with the PowerPoint document. " +
+    "The code receives a context parameter and runs inside PowerPoint.run(). " +
+    "Use this for any document operations like adding slides, shapes, text, and formatting.",
+  parameters: Type.Object({
+    code: Type.String({
+      description:
+        "Async function body that receives 'context: PowerPoint.RequestContext'. " +
+        "Must call context.sync() to execute batched operations and load() to read properties. " +
+        "Return JSON-serializable results. " +
+        "readFile(path) returns Promise<string> and readFileBuffer(path) returns Promise<Uint8Array> " +
+        "to read files from the virtual filesystem. " +
+        "writeFile(path, content) returns Promise<void> to write string or Uint8Array to the virtual filesystem.",
+    }),
+    explanation: Type.Optional(
+      Type.String({
+        description: "Brief explanation of what this code does (max 100 chars)",
+        maxLength: 100,
+      }),
+    ),
+  }),
+  execute: async (_toolCallId, params) => {
+    try {
+      const result = await safeRun(async (context) => {
+        return sandboxedEval(params.code, {
+          context,
+          PowerPoint,
+          Office,
+          readFile,
+          readFileBuffer,
+          writeFile,
+        });
+      });
+
+      return toolSuccess({ success: true, result: result ?? null });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown error executing code";
+      return toolError(message);
+    }
+  },
+});

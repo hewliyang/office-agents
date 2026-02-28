@@ -1,4 +1,23 @@
 import {
+  API_TYPES,
+  buildAuthorizationUrl,
+  exchangeOAuthCode,
+  generatePKCE,
+  listFetchProviders,
+  listSearchProviders,
+  loadOAuthCredentials,
+  loadSavedConfig,
+  loadWebConfig,
+  OAUTH_PROVIDERS,
+  type OAuthFlowState,
+  removeOAuthCredentials,
+  saveConfig,
+  saveOAuthCredentials,
+  saveWebConfig,
+  THINKING_LEVELS,
+  type ThinkingLevel,
+} from "@office-agents/sdk";
+import {
   Check,
   ChevronDown,
   ChevronUp,
@@ -11,26 +30,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import {
-  buildAuthorizationUrl,
-  exchangeOAuthCode,
-  generatePKCE,
-  loadOAuthCredentials,
-  OAUTH_PROVIDERS,
-  type OAuthFlowState,
-  removeOAuthCredentials,
-  saveOAuthCredentials,
-} from "../oauth";
-import {
-  API_TYPES,
-  loadSavedConfig,
-  saveConfig,
-  THINKING_LEVELS,
-  type ThinkingLevel,
-} from "../provider-config";
-import { loadWebConfig, saveWebConfig } from "../web/config";
-import { listFetchProviders } from "../web/fetch";
-import { listSearchProviders } from "../web/search";
 import { useChat } from "./chat-context";
 
 function SkillsSection() {

@@ -1,6 +1,7 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { SkillMeta } from "@office-agents/sdk";
+import type { CustomCommand } from "just-bash/browser";
 import type { ComponentType } from "react";
-import type { SkillMeta } from "../skills";
 
 export interface ToolExtrasProps {
   toolName: string;
@@ -27,6 +28,9 @@ export interface AppAdapter {
   appVersion?: string;
   appName?: string;
   emptyStateMessage?: string;
+  staticFiles?: Record<string, string>;
+  customCommands?: () => CustomCommand[];
   ToolExtras?: ComponentType<ToolExtrasProps>;
   Link?: ComponentType<LinkProps>;
+  SelectionIndicator?: ComponentType;
 }
