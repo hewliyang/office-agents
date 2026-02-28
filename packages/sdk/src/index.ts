@@ -115,10 +115,12 @@ export {
 // Web
 export { loadWebConfig, saveWebConfig, type WebConfig } from "./web/config";
 export { fetchWeb, listFetchProviders } from "./web/fetch";
-export { listSearchProviders, searchWeb } from "./web/search";
+export { listSearchProviders, searchImages, searchWeb } from "./web/search";
 export type {
   FetchProvider,
   FetchResult,
+  ImageSearchOptions,
+  ImageSearchResult,
   SearchOptions,
   SearchProvider,
   SearchResult,

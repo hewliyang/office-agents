@@ -46,6 +46,7 @@ FILES & SHELL:
   - xlsx-to-csv <file> <outfile> [sheet] — Convert XLSX/XLS/ODS to CSV
   - web-search <query> [--max=N] [--json] — Search the web
   - web-fetch <url> <outfile> — Fetch a URL (HTML→Markdown, binary→raw file)
+  - image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.
   - insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=in|cm|pt|emu] [--name=NAME] — Insert a VFS image onto a slide (1-based slide number, default size 5×3.75 inches at origin)
   - search-icons <query> [--limit=N] [--prefix=ICON_SET] [--prefixes=SET1,SET2] — Search 200k+ vector icons from Iconify (Material, Fluent, Phosphor, Heroicons, Tabler, FontAwesome, etc.)
   - insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=in|cm|pt|emu] [--color=#HEX] [--name=NAME] — Insert a vector icon onto a slide as SVG with PNG fallback

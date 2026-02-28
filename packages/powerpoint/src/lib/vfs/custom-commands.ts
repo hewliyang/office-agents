@@ -2,6 +2,7 @@ import {
   fetchWeb,
   loadSavedConfig,
   loadWebConfig,
+  searchImages,
   searchWeb,
 } from "@office-agents/core";
 import type { Command, CustomCommand } from "just-bash/browser";
@@ -489,6 +490,80 @@ const webFetchCmd: Command = defineCommand("web-fetch", async (args, ctx) => {
 
     return {
       stdout: `Downloaded → ${outFile} (${size}, ${result.contentType || "unknown type"})`,
+      stderr: "",
+      exitCode: 0,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { stdout: "", stderr: msg, exitCode: 1 };
+  }
+});
+
+const imageSearchCmd: Command = defineCommand("image-search", async (args) => {
+  const flags: Record<string, string> = {};
+  const positional: string[] = [];
+  for (const arg of args) {
+    const match = arg.match(/^--(\w+)=(.+)$/);
+    if (match) {
+      flags[match[1]] = match[2];
+    } else if (arg === "--json") {
+      flags.json = "true";
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  const query = positional.join(" ");
+  if (!query) {
+    return {
+      stdout: "",
+      stderr:
+        "Usage: image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json]\n" +
+        "  query  - Image search query\n" +
+        "  --num  - Number of results (default: 10)\n" +
+        "  --page - Page number (default: 1)\n" +
+        "  --gl   - Country code, e.g. us, uk (default: us)\n" +
+        "  --hl   - Language code, e.g. en, fr (default: en)\n" +
+        "  --json - Output as JSON\n" +
+        "\nRequires a Serper API key configured in Settings > Web > API Keys.\n",
+      exitCode: 1,
+    };
+  }
+
+  try {
+    const webConfig = loadWebConfig();
+    const results = await searchImages(
+      query,
+      {
+        num: flags.num ? Number.parseInt(flags.num, 10) : undefined,
+        page: flags.page ? Number.parseInt(flags.page, 10) : undefined,
+        gl: flags.gl,
+        hl: flags.hl,
+      },
+      {
+        proxyUrl: getProxyUrl(),
+        apiKeys: webConfig.apiKeys,
+      },
+    );
+
+    if (results.length === 0) {
+      return { stdout: "No images found.", stderr: "", exitCode: 0 };
+    }
+
+    if (flags.json === "true") {
+      return {
+        stdout: JSON.stringify(results, null, 2),
+        stderr: "",
+        exitCode: 0,
+      };
+    }
+
+    const lines = results.map(
+      (r, i) =>
+        `${i + 1}. ${r.title}\n   Image: ${r.imageUrl} (${r.imageWidth}×${r.imageHeight})\n   Source: ${r.source} (${r.domain})\n   Page: ${r.link}`,
+    );
+    return {
+      stdout: lines.join("\n\n"),
       stderr: "",
       exitCode: 0,
     };
@@ -1107,6 +1182,7 @@ export function getCustomCommands(): CustomCommand[] {
     xlsxToCsv,
     webSearchCmd,
     webFetchCmd,
+    imageSearchCmd,
     insertImageCmd,
     searchIconsCmd,
     insertIconCmd,

@@ -1,4 +1,6 @@
 import type {
+  ImageSearchOptions,
+  ImageSearchResult,
   SearchOptions,
   SearchProvider,
   SearchResult,
@@ -274,4 +276,76 @@ export async function searchWeb(
 ): Promise<SearchResult[]> {
   const provider = getSearchProvider(providerId);
   return provider.search(query, options, context);
+}
+
+export async function searchImages(
+  query: string,
+  options: ImageSearchOptions = {},
+  context: WebContext = {},
+): Promise<ImageSearchResult[]> {
+  const apiKey = getApiKey(context, "serper");
+  if (!apiKey) {
+    throw new Error(
+      "Image search requires a Serper API key. Configure it in Settings > Web > API Keys.",
+    );
+  }
+
+  const body: {
+    q: string;
+    num?: number;
+    page?: number;
+    gl?: string;
+    hl?: string;
+  } = { q: query };
+  if (options.num) body.num = options.num;
+  if (options.page) body.page = options.page;
+  if (options.gl) body.gl = options.gl;
+  if (options.hl) body.hl = options.hl;
+
+  const endpoint = "https://google.serper.dev/images";
+
+  const resp = await fetchWithProxy(endpoint, context, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-KEY": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    throw new Error(
+      `Serper image search failed: ${resp.status} ${resp.statusText}`,
+    );
+  }
+
+  const data = (await resp.json()) as {
+    images?: Array<{
+      title?: string;
+      imageUrl?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+      thumbnailUrl?: string;
+      thumbnailWidth?: number;
+      thumbnailHeight?: number;
+      source?: string;
+      domain?: string;
+      link?: string;
+      position?: number;
+    }>;
+  };
+
+  return (data.images || []).map((img, i) => ({
+    title: img.title || "",
+    imageUrl: img.imageUrl || "",
+    imageWidth: img.imageWidth || 0,
+    imageHeight: img.imageHeight || 0,
+    thumbnailUrl: img.thumbnailUrl || "",
+    thumbnailWidth: img.thumbnailWidth || 0,
+    thumbnailHeight: img.thumbnailHeight || 0,
+    source: img.source || "",
+    domain: img.domain || "",
+    link: img.link || "",
+    position: img.position || i + 1,
+  }));
 }

@@ -40,6 +40,27 @@ export type FetchResult =
       data: Uint8Array;
     };
 
+export interface ImageSearchResult {
+  title: string;
+  imageUrl: string;
+  imageWidth: number;
+  imageHeight: number;
+  thumbnailUrl: string;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
+  source: string;
+  domain: string;
+  link: string;
+  position: number;
+}
+
+export interface ImageSearchOptions {
+  num?: number;
+  page?: number;
+  gl?: string;
+  hl?: string;
+}
+
 export interface FetchProvider {
   id: string;
   requiresApiKey?: boolean;
