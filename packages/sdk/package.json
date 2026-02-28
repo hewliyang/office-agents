@@ -1,12 +1,31 @@
 {
   "name": "@office-agents/sdk",
   "version": "0.2.4",
-  "private": true,
   "type": "module",
+  "description": "Headless SDK for Office Agents — agent runtime, tools, storage, VFS, skills, OAuth, and provider config for building AI-powered Office Add-ins",
+  "license": "MIT",
   "main": "src/index.ts",
+  "types": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*"
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.54.0",
@@ -21,6 +40,14 @@
     "ses": "^1.14.0",
     "turndown": "^7.2.2",
     "xlsx": "^0.18.5"
+  },
+  "peerDependencies": {
+    "@types/office-js": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/office-js": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/office-js": "^1.0.377"
