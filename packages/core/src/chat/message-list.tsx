@@ -46,12 +46,61 @@ function ThinkingBlock({
 
 type ToolCallPart = Extract<MessagePart, { type: "toolCall" }>;
 
+const CODE_FIELD_LANGS: Record<string, string> = {
+  code: "javascript",
+  command: "text",
+};
+
+const HIDDEN_ARG_FIELDS = new Set(["explanation"]);
+const HIDDEN_RESULT_FIELDS = new Set(["_dirtyRanges", "_modifiedSlide"]);
+
+function splitArgs(args: Record<string, unknown>) {
+  const codeBlocks: { field: string; lang: string; value: string }[] = [];
+  const rest: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(args)) {
+    if (HIDDEN_ARG_FIELDS.has(key)) continue;
+    const lang = CODE_FIELD_LANGS[key];
+    if (lang && typeof value === "string") {
+      codeBlocks.push({ field: key, lang, value });
+    } else {
+      rest[key] = value;
+    }
+  }
+
+  return { codeBlocks, rest };
+}
+
+function cleanResult(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null) {
+      const cleaned = { ...parsed };
+      let changed = false;
+      for (const key of HIDDEN_RESULT_FIELDS) {
+        if (key in cleaned) {
+          delete cleaned[key];
+          changed = true;
+        }
+      }
+      if (changed) return JSON.stringify(cleaned, null, 2);
+    }
+  } catch {
+    // not JSON, return as-is
+  }
+  return raw;
+}
+
 function ToolCallBlock({ part }: { part: ToolCallPart }) {
-  const { adapter } = useChat();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { adapter, state } = useChat();
+  const expandByDefault = state.providerConfig?.expandToolCalls ?? false;
+  const [isExpanded, setIsExpanded] = useState(expandByDefault);
   const explanation = (part.args as { explanation?: string })?.explanation;
 
   const ToolExtras = adapter.ToolExtras;
+
+  const { codeBlocks, rest } = splitArgs(part.args);
+  const hasRestArgs = Object.keys(rest).length > 0;
 
   const statusIcon = {
     pending: (
@@ -63,6 +112,8 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
     complete: <CheckCircle2 size={10} className="text-green-500" />,
     error: <XCircle size={10} className="text-red-500" />,
   }[part.status];
+
+  const resultText = part.result ? cleanResult(part.result) : undefined;
 
   return (
     <div className="mt-3 mb-2 border border-(--chat-border) bg-(--chat-bg) rounded-sm overflow-hidden">
@@ -96,16 +147,33 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
               />
             </div>
           )}
-          <div className="px-2 py-1.5 text-xs">
-            <div className="text-(--chat-text-muted) text-[10px] uppercase mb-1">
-              args
+          {hasRestArgs && (
+            <div className="px-2 py-1.5 text-xs">
+              <div className="text-(--chat-text-muted) text-[10px] uppercase mb-1">
+                args
+              </div>
+              <div className="markdown-content max-h-32 overflow-y-auto **:data-[streamdown=code-block]:my-0 **:data-[streamdown=code-block]:border-0">
+                <Streamdown
+                  plugins={{ code }}
+                >{`\`\`\`json\n${JSON.stringify(rest, null, 2)}\n\`\`\``}</Streamdown>
+              </div>
             </div>
-            <div className="markdown-content max-h-32 overflow-y-auto **:data-[streamdown=code-block]:my-0 **:data-[streamdown=code-block]:border-0">
-              <Streamdown
-                plugins={{ code }}
-              >{`\`\`\`json\n${JSON.stringify(part.args, null, 2)}\n\`\`\``}</Streamdown>
+          )}
+          {codeBlocks.map((block) => (
+            <div
+              key={block.field}
+              className={`px-2 py-1.5 text-xs ${hasRestArgs || codeBlocks.indexOf(block) > 0 ? "border-t border-(--chat-border)" : ""}`}
+            >
+              <div className="text-(--chat-text-muted) text-[10px] uppercase mb-1">
+                {block.field}
+              </div>
+              <div className="markdown-content max-h-64 overflow-y-auto **:data-[streamdown=code-block]:my-0 **:data-[streamdown=code-block]:border-0">
+                <Streamdown
+                  plugins={{ code }}
+                >{`\`\`\`${block.lang}\n${block.value}\n\`\`\``}</Streamdown>
+              </div>
             </div>
-          </div>
+          ))}
           {part.images && part.images.length > 0 && (
             <div className="px-2 py-1.5 border-t border-(--chat-border)">
               {part.images.map((img, imgIdx) => (
@@ -118,7 +186,7 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
               ))}
             </div>
           )}
-          {part.result && (
+          {resultText && (
             <div className="px-2 py-1.5 text-xs border-t border-(--chat-border)">
               <div className="text-(--chat-text-muted) text-[10px] uppercase mb-1">
                 {part.status === "error" ? "error" : "result"}
@@ -128,7 +196,7 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
               >
                 <Streamdown
                   plugins={{ code }}
-                >{`\`\`\`json\n${part.result}\n\`\`\``}</Streamdown>
+                >{`\`\`\`json\n${resultText}\n\`\`\``}</Streamdown>
               </div>
             </div>
           )}
@@ -382,7 +450,7 @@ export function MessageList() {
         if (group.type === "user") {
           return <UserBubble key={group.message.id} message={group.message} />;
         }
-        const groupKey = group.messages.map((m) => m.id).join("-");
+        const groupKey = group.messages[0].id;
         return (
           <AssistantBubble
             key={groupKey}

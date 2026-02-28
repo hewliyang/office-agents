@@ -824,6 +824,16 @@ export class AgentRuntime {
     this.update({ providerConfig: newConfig });
   }
 
+  toggleExpandToolCalls() {
+    if (!this.state.providerConfig) return;
+    const newConfig = {
+      ...this.state.providerConfig,
+      expandToolCalls: !this.state.providerConfig.expandToolCalls,
+    };
+    saveConfig(newConfig);
+    this.update({ providerConfig: newConfig });
+  }
+
   getName(id: number): string | undefined {
     return this.state.nameMap[id];
   }

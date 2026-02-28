@@ -1,4 +1,2 @@
-- Image search API (custom-command)
-- Publish @office-agents/core to NPM
-- Display code nicely in tool calls w/ syntax highlighting
+- Publish @office-agents/sdk to NPM
 - Presentation shit

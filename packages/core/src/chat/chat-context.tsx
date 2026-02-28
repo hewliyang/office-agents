@@ -38,6 +38,7 @@ interface ChatContextValue {
   deleteCurrentSession: () => Promise<void>;
   getName: (id: number) => string | undefined;
   toggleFollowMode: () => void;
+  toggleExpandToolCalls: () => void;
   processFiles: (files: File[]) => Promise<void>;
   removeUpload: (name: string) => Promise<void>;
   installSkill: (files: File[]) => Promise<void>;
@@ -117,6 +118,11 @@ export function ChatProvider({
     [runtime],
   );
 
+  const toggleExpandToolCalls = useCallback(
+    () => runtime.toggleExpandToolCalls(),
+    [runtime],
+  );
+
   const processFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
@@ -173,6 +179,7 @@ export function ChatProvider({
         deleteCurrentSession,
         getName,
         toggleFollowMode,
+        toggleExpandToolCalls,
         processFiles,
         removeUpload,
         installSkill,

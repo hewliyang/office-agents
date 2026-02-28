@@ -169,6 +169,7 @@ export function SettingsPanel() {
     setProviderConfig,
     availableProviders,
     getModelsForProvider,
+    toggleExpandToolCalls,
     adapter,
   } = useChat();
 
@@ -219,6 +220,7 @@ export function SettingsPanel() {
   const [oauthCodeInput, setOauthCodeInput] = useState("");
 
   const followMode = state.providerConfig?.followMode ?? true;
+  const expandToolCalls = state.providerConfig?.expandToolCalls ?? false;
   const isCustom = provider === "custom";
 
   const updateAndSync = useCallback(
@@ -267,6 +269,7 @@ export function SettingsPanel() {
           proxyUrl: pu,
           thinking: t,
           followMode,
+          expandToolCalls,
           apiType: at,
           customBaseUrl: cb,
           authMethod: am,
@@ -279,6 +282,7 @@ export function SettingsPanel() {
           proxyUrl: pu,
           thinking: t,
           followMode,
+          expandToolCalls,
           apiType: at,
           customBaseUrl: cb,
           authMethod: am,
@@ -296,6 +300,7 @@ export function SettingsPanel() {
       customBaseUrl,
       authMethod,
       followMode,
+      expandToolCalls,
       setProviderConfig,
     ],
   );
@@ -817,6 +822,33 @@ export function SettingsPanel() {
             <p className="text-[10px] text-(--chat-text-muted) mt-1">
               Extended thinking for supported models
             </p>
+          </div>
+
+          {/* Expand Tool Calls */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-(--chat-text-secondary)">
+                Expand Tool Calls
+              </span>
+              <p className="text-[10px] text-(--chat-text-muted) mt-0.5">
+                Show tool call details expanded by default
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleExpandToolCalls}
+              className={`
+                w-10 h-5 rounded-full transition-colors relative
+                ${expandToolCalls ? "bg-(--chat-accent)" : "bg-(--chat-border)"}
+              `}
+            >
+              <span
+                className={`
+                  absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform
+                  ${expandToolCalls ? "left-5" : "left-0.5"}
+                `}
+              />
+            </button>
           </div>
 
           <div className="border-t border-(--chat-border) pt-4 space-y-3">

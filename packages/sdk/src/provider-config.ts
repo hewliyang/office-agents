@@ -12,6 +12,7 @@ export interface ProviderConfig {
   proxyUrl: string;
   thinking: ThinkingLevel;
   followMode: boolean;
+  expandToolCalls: boolean;
   apiType?: string;
   customBaseUrl?: string;
   authMethod?: "apikey" | "oauth";
@@ -70,6 +71,7 @@ export function loadSavedConfig(): ProviderConfig | null {
       const config = JSON.parse(saved);
       if (config.proxyUrl === undefined) config.proxyUrl = "";
       if (config.followMode === undefined) config.followMode = true;
+      if (config.expandToolCalls === undefined) config.expandToolCalls = false;
       if (config.apiType === undefined) config.apiType = "";
       if (config.customBaseUrl === undefined) config.customBaseUrl = "";
       if (config.authMethod === undefined) config.authMethod = "apikey";
