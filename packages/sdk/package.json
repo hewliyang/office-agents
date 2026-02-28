@@ -1,6 +1,6 @@
 {
   "name": "@office-agents/sdk",
-  "version": "0.2.4",
+  "version": "0.0.1",
   "type": "module",
   "description": "Headless SDK for Office Agents — agent runtime, tools, storage, VFS, skills, OAuth, and provider config for building AI-powered Office Add-ins",
   "license": "MIT",
@@ -19,8 +19,14 @@
       }
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hewliyang/open-excel.git",
+    "directory": "packages/sdk"
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
