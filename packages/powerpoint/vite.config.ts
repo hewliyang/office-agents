@@ -26,7 +26,7 @@ async function getHttpsOptions() {
 export default defineConfig(async ({ mode }) => {
   const dev = mode === "development";
   const urlDev = "https://localhost:3001/";
-  const urlProd = "https://openppt.pages.dev/";
+  const urlProd = "https://openppt-9p7.pages.dev/";
 
   return {
     root: "src",
