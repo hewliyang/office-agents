@@ -34,8 +34,8 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.54.0",
-    "@mariozechner/pi-ai": "^0.54.0",
+    "@mariozechner/pi-agent-core": "catalog:",
+    "@mariozechner/pi-ai": "catalog:",
     "@mozilla/readability": "^0.6.0",
     "@sinclair/typebox": "^0.34.48",
     "@types/turndown": "^5.0.6",

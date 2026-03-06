@@ -1,2 +1,6 @@
 packages:
   - "packages/*"
+
+catalog:
+  "@mariozechner/pi-agent-core": "^0.56.2"
+  "@mariozechner/pi-ai": "^0.56.2"

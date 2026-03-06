@@ -12,8 +12,8 @@
     "./*": "./src/*"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.54.0",
-    "@mariozechner/pi-ai": "^0.54.0",
+    "@mariozechner/pi-agent-core": "catalog:",
+    "@mariozechner/pi-ai": "catalog:",
     "@office-agents/sdk": "workspace:*",
     "just-bash": "^2.7.0",
     "@streamdown/code": "^1.0.1",

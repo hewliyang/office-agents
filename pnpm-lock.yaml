@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@mariozechner/pi-agent-core':
+      specifier: ^0.56.2
+      version: 0.56.2
+    '@mariozechner/pi-ai':
+      specifier: ^0.56.2
+      version: 0.56.2
+
 importers:
 
   .:
@@ -21,11 +30,11 @@ importers:
   packages/core:
     dependencies:
       '@mariozechner/pi-agent-core':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-ai':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@office-agents/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -61,11 +70,11 @@ importers:
   packages/excel:
     dependencies:
       '@mariozechner/pi-agent-core':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-ai':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -152,11 +161,11 @@ importers:
   packages/powerpoint:
     dependencies:
       '@mariozechner/pi-agent-core':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-ai':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -246,11 +255,11 @@ importers:
   packages/sdk:
     dependencies:
       '@mariozechner/pi-agent-core':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-ai':
-        specifier: ^0.54.0
-        version: 0.54.0(ws@8.19.0)(zod@3.25.76)
+        specifier: 'catalog:'
+        version: 0.56.2(ws@8.19.0)(zod@3.25.76)
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
@@ -1110,12 +1119,12 @@ packages:
   '@jsdevtools/ono@7.1.3':
     resolution: {integrity: sha512-4JQNk+3mVzK3xh2rqd6RB4J46qUR19azEHBneZyTZM+c456qOrbbM/5xcR8huNCCcbVt7+UmizG6GuUvPvKUYg==}
 
-  '@mariozechner/pi-agent-core@0.54.0':
-    resolution: {integrity: sha512-LsPoudpOJLj7JjSpjlAdLM5uA2iy8nP+4nA6Si1ASD3tMqXdjHzNaKNloGSODKJO+3O3yhwPMSbuk78CCnZteQ==}
+  '@mariozechner/pi-agent-core@0.56.2':
+    resolution: {integrity: sha512-jpE5MosroL0Lk7UiJX7GY0qpkhibiZORZviGUiGfoIK25fa+ToLYwmErRYKpmj44wc7G1IMdQujr6f65FAkBGA==}
     engines: {node: '>=20.0.0'}
 
-  '@mariozechner/pi-ai@0.54.0':
-    resolution: {integrity: sha512-XHhMIbFFHCa4mbiYdttfhVg6r3VmFD5tAiW4tjnmf33FhLUCRd76bGMQRc4kLWXPKCi/U4nqAErvaGiZUY4B8A==}
+  '@mariozechner/pi-ai@0.56.2':
+    resolution: {integrity: sha512-7cPhumqo/Ke7W4Lng5RyGmBWuhK0G9Z7JVfTl00m11snk5G+MYtNeqpi7VHZ5yW1K0DLsTAY9Mi2KLghaFImiA==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -1152,8 +1161,8 @@ packages:
   '@microsoft/teamsfx-core@3.0.9':
     resolution: {integrity: sha512-kQgLfIgllxDbOJIUcnqbUcv1NDju8bVFAWWfE+VdUkSorJ1WbmYWhKKEGCerBKhvKvK3lpQ80smA0yptKCpoRA==}
 
-  '@mistralai/mistralai@1.10.0':
-    resolution: {integrity: sha512-tdIgWs4Le8vpvPiUEWne6tK0qbVc+jMenujnvTqOjogrJUsCSQhus0tHTU1avDDh5//Rq2dFgP9mWRAdIEoBqg==}
+  '@mistralai/mistralai@1.14.1':
+    resolution: {integrity: sha512-IiLmmZFCCTReQgPAT33r7KQ1nYo5JPdvGkrkZqA8qQ2qB1GHgs5LoP5K2ICyrjnpw2n8oSxMM/VP+liiKcGNlQ==}
 
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
@@ -2036,6 +2045,7 @@ packages:
   basic-ftp@5.1.0:
     resolution: {integrity: sha512-RkaJzeJKDbaDWTIPiJwubyljaEPwpVWkm9Rt5h9Nd6h7tEXTJ3VB4qxdZBioV7JO5yLUaOKwz7vDOzlncUsegw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
 
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
@@ -3818,8 +3828,8 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openai@6.10.0:
-    resolution: {integrity: sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==}
+  openai@6.26.0:
+    resolution: {integrity: sha512-zd23dbWTjiJ6sSAX6s0HrCZi41JwTA1bQVs0wLQPZ2/5o2gxOJA5wh7yOAUgwYybfhDXyhwlpeQf7Mlgx8EOCA==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -6088,9 +6098,9 @@ snapshots:
 
   '@jsdevtools/ono@7.1.3': {}
 
-  '@mariozechner/pi-agent-core@0.54.0(ws@8.19.0)(zod@3.25.76)':
+  '@mariozechner/pi-agent-core@0.56.2(ws@8.19.0)(zod@3.25.76)':
     dependencies:
-      '@mariozechner/pi-ai': 0.54.0(ws@8.19.0)(zod@3.25.76)
+      '@mariozechner/pi-ai': 0.56.2(ws@8.19.0)(zod@3.25.76)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -6100,17 +6110,17 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.54.0(ws@8.19.0)(zod@3.25.76)':
+  '@mariozechner/pi-ai@0.56.2(ws@8.19.0)(zod@3.25.76)':
     dependencies:
       '@anthropic-ai/sdk': 0.73.0(zod@3.25.76)
       '@aws-sdk/client-bedrock-runtime': 3.985.0
       '@google/genai': 1.40.0
-      '@mistralai/mistralai': 1.10.0
+      '@mistralai/mistralai': 1.14.1
       '@sinclair/typebox': 0.34.48
       ajv: 8.17.1
       ajv-formats: 3.0.1(ajv@8.17.1)
       chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@3.25.76)
+      openai: 6.26.0(ws@8.19.0)(zod@3.25.76)
       partial-json: 0.1.7
       proxy-agent: 6.5.0
       undici: 7.19.2
@@ -6308,10 +6318,14 @@ snapshots:
       - encoding
       - supports-color
 
-  '@mistralai/mistralai@1.10.0':
+  '@mistralai/mistralai@1.14.1':
     dependencies:
+      ws: 8.19.0
       zod: 3.25.76
       zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@mixmark-io/domino@2.2.0': {}
 
@@ -9481,7 +9495,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@6.10.0(ws@8.19.0)(zod@3.25.76):
+  openai@6.26.0(ws@8.19.0)(zod@3.25.76):
     optionalDependencies:
       ws: 8.19.0
       zod: 3.25.76

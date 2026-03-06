@@ -20,8 +20,8 @@
   "dependencies": {
     "@office-agents/core": "workspace:*",
     "lucide-react": "^0.563.0",
-    "@mariozechner/pi-agent-core": "^0.54.0",
-    "@mariozechner/pi-ai": "^0.54.0",
+    "@mariozechner/pi-agent-core": "catalog:",
+    "@mariozechner/pi-ai": "catalog:",
     "@sinclair/typebox": "^0.34.48",
     "just-bash": "^2.7.0",
     "mammoth": "^1.11.0",

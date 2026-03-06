@@ -18,8 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.54.0",
-    "@mariozechner/pi-ai": "^0.54.0",
+    "@mariozechner/pi-agent-core": "catalog:",
+    "@mariozechner/pi-ai": "catalog:",
     "@office-agents/core": "workspace:*",
     "@sinclair/typebox": "^0.34.48",
     "jszip": "^3.10.1",
