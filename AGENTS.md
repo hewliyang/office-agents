@@ -87,14 +87,23 @@ pnpm validate            # Validate Office manifests
 
 ## Release Workflow
 
-Releases are triggered by pushing a version tag. CI runs quality checks, deploys to Cloudflare Pages, and creates a GitHub release with changelog.
+Each app is released independently with its own version tag, changelog, and Cloudflare Pages project.
 
-### Steps
+| App        | Tag prefix  | Changelog                        | CF Pages project |
+| ---------- | ----------- | -------------------------------- | ---------------- |
+| Excel      | `excel-v*`  | `packages/excel/CHANGELOG.md`      | `openexcel`      |
+| PowerPoint | `ppt-v*`    | `packages/powerpoint/CHANGELOG.md` | `openppt`        |
 
-1. Update `CHANGELOG.md`
-2. Bump version: `pnpm version patch` (or minor/major)
-3. Push: `git push && git push --tags`
-4. CI deploys `packages/excel/dist` to Cloudflare Pages
+### Steps (per app)
+
+1. Add changes under `## [Unreleased]` in the app's `CHANGELOG.md`
+2. Run the release script:
+   ```bash
+   pnpm release:excel patch   # or minor/major
+   pnpm release:ppt patch     # or minor/major
+   ```
+3. The script bumps the version, stamps the changelog, commits, tags (`excel-v*` / `ppt-v*`), and pushes
+4. CI builds, deploys to Cloudflare Pages, and creates a GitHub release
 
 ## Configuration Storage
 

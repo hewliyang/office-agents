@@ -1,6 +1,6 @@
 {
   "name": "office-agents",
-  "version": "0.2.4",
+  "version": "0.0.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -17,7 +17,9 @@
     "test": "pnpm -r test",
     "typecheck": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint",
     "check": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint && biome check packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
-    "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.prod.xml"
+    "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.prod.xml",
+    "release:excel": "node scripts/release.mjs excel",
+    "release:ppt": "node scripts/release.mjs ppt"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",

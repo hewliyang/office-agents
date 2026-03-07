@@ -1,16 +1,16 @@
-name: Release
+name: Release Excel
 
 on:
   push:
     tags:
-      - "v*"
+      - "excel-v*"
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Build & Release
+    name: Build & Release Excel
     runs-on: ubuntu-latest
 
     steps:
@@ -34,15 +34,15 @@ jobs:
       - name: Extract changelog
         id: changelog
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+          VERSION="${GITHUB_REF_NAME#excel-v}"
+          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" packages/excel/CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             echo "::warning::No changelog entry found for ${VERSION}, falling back to Unreleased"
-            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
+            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' packages/excel/CHANGELOG.md)
           fi
           echo "$NOTES" > /tmp/release-notes.md
 
-      - name: Deploy Excel to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -52,4 +52,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: Excel ${{ github.ref_name }}
           body_path: /tmp/release-notes.md

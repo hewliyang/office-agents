@@ -1,0 +1,56 @@
+name: Release PowerPoint
+
+on:
+  push:
+    tags:
+      - "ppt-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release PowerPoint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#ppt-v}"
+          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" packages/powerpoint/CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "::warning::No changelog entry found for ${VERSION}, falling back to Unreleased"
+            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' packages/powerpoint/CHANGELOG.md)
+          fi
+          echo "$NOTES" > /tmp/release-notes.md
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy packages/powerpoint/dist --project-name=openppt --branch=main --commit-dirty=true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PowerPoint ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
