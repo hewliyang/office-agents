@@ -49,6 +49,7 @@ export {
   getOrCreateDocumentId,
   getSession,
   getSessionMessageCount,
+  getSharedCustomCommands,
   getVfs,
   type ImageSearchOptions,
   type ImageSearchResult,

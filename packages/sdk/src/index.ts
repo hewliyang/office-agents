@@ -99,6 +99,7 @@ export {
   fileExists,
   getBash,
   getFileType,
+  getSharedCustomCommands,
   getVfs,
   listUploads,
   readFile,
