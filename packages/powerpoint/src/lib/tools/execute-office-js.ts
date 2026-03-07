@@ -53,10 +53,12 @@ export const executeOfficeJsTool = defineTool({
         const parts = [error.message];
         if (error.code) parts.push(`Code: ${error.code}`);
         if (error.debugInfo) {
-          const { errorLocation, statement, surroundingStatements } = error.debugInfo;
+          const { errorLocation, statement, surroundingStatements } =
+            error.debugInfo;
           if (errorLocation) parts.push(`Location: ${errorLocation}`);
           if (statement) parts.push(`Statement: ${statement}`);
-          if (surroundingStatements?.length) parts.push(`Context: ${surroundingStatements.join("; ")}`);
+          if (surroundingStatements?.length)
+            parts.push(`Context: ${surroundingStatements.join("; ")}`);
         }
         return toolError(parts.join("\n"));
       }
