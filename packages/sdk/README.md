@@ -161,7 +161,12 @@ import {
 } from "@office-agents/sdk";
 
 // Set namespace (scopes storage to a document)
-configureNamespace("my-app", "doc-123");
+configureNamespace({
+  dbName: "MyOfficeAppDB",
+  dbVersion: 1,
+  localStoragePrefix: "my-office-app",
+  documentSettingsPrefix: "my-office-app",
+});
 
 // Create and manage sessions
 const session = await createSession("My Chat");
@@ -213,7 +218,9 @@ const promptSection = buildSkillsPromptSection(skills);
 
 ### Storage
 
-- **`configureNamespace(app, docId)`** — Scope all storage to a specific app/document.
+- **`configureNamespace(config)`** — Configure storage namespacing before creating the runtime.
+  Available fields:
+  `dbName`, `dbVersion`, `localStoragePrefix`, `documentSettingsPrefix`, `documentIdSettingsKey`.
 - **`createSession(title)`** / **`saveSession(session)`** / **`deleteSession(id)`** — Session CRUD.
 - **`loadVfsFiles(sessionId)`** / **`saveVfsFiles(sessionId, files)`** — Persist VFS files per session.
 

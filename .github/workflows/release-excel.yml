@@ -31,6 +31,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Validate manifests
+        run: pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml
+
       - name: Extract changelog
         id: changelog
         run: |

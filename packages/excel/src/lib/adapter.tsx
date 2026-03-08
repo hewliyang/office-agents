@@ -52,6 +52,13 @@ export function createExcelAdapter(): AppAdapter {
 
     appName: "OpenExcel",
     metadataTag: "wb_context",
+    storageNamespace: {
+      dbName: "OpenExcelDB_v3",
+      dbVersion: 30,
+      localStoragePrefix: "openexcel",
+      documentSettingsPrefix: "openexcel",
+      documentIdSettingsKey: "openexcel-workbook-id",
+    },
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to interact with your Excel data",
     SelectionIndicator,

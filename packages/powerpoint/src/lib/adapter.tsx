@@ -19,6 +19,13 @@ export function createPowerPointAdapter(): AppAdapter {
 
     appName: "OpenPPT",
     metadataTag: "ppt_context",
+    storageNamespace: {
+      dbName: "OpenPPTDB_v1",
+      dbVersion: 1,
+      localStoragePrefix: "openppt",
+      documentSettingsPrefix: "openppt",
+      documentIdSettingsKey: "openppt-presentation-id",
+    },
     appVersion: __APP_VERSION__,
     emptyStateMessage:
       "Start a conversation to create or edit your presentation",

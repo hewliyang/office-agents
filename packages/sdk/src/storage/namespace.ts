@@ -3,6 +3,7 @@ export interface StorageNamespace {
   dbVersion: number;
   localStoragePrefix: string;
   documentSettingsPrefix: string;
+  documentIdSettingsKey?: string;
 }
 
 const defaults: StorageNamespace = {

@@ -1,5 +1,5 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { SkillMeta } from "@office-agents/sdk";
+import type { SkillMeta, StorageNamespace } from "@office-agents/sdk";
 import type { CustomCommand } from "just-bash/browser";
 import type { ComponentType } from "react";
 
@@ -24,7 +24,7 @@ export interface AppAdapter {
   } | null>;
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
-  storagePrefix?: string;
+  storageNamespace?: StorageNamespace;
   appVersion?: string;
   appName?: string;
   emptyStateMessage?: string;

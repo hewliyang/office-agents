@@ -245,7 +245,8 @@ interface InsertImageParams {
 
 async function insertImageIntoSlide(params: InsertImageParams): Promise<void> {
   const { slideIndex, data, ext, mime, shapeName, offX, offY, cx, cy } = params;
-  const prefix = params.mediaPrefix || "vfs_image";
+  const prefix =
+    params.mediaPrefix || `vfs_image_${Date.now()}_${crypto.randomUUID()}`;
   const isSvg = ext === "svg";
   let pngFallback: Uint8Array | undefined;
   if (isSvg) {

@@ -98,7 +98,8 @@ export function getSessionMessageCount(session: ChatSession): number {
 
 export async function getOrCreateDocumentId(): Promise<string> {
   const ns = getNamespace();
-  const settingsKey = `${ns.documentSettingsPrefix}-document-id`;
+  const settingsKey =
+    ns.documentIdSettingsKey ?? `${ns.documentSettingsPrefix}-document-id`;
   return new Promise((resolve, reject) => {
     const settings = Office.context.document.settings;
     let docId = settings.get(settingsKey) as string | null;

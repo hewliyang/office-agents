@@ -16,7 +16,7 @@
     "format": "biome format --write packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
     "test": "pnpm -r test",
     "typecheck": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint",
-    "check": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint && biome check packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts",
+    "check": "tsc -b packages/sdk packages/core packages/excel packages/powerpoint && biome check packages/sdk/src packages/core/src packages/excel/src packages/excel/vite.config.ts packages/powerpoint/src packages/powerpoint/vite.config.ts && pnpm validate",
     "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.prod.xml",
     "release:excel": "node scripts/release.mjs excel",
     "release:ppt": "node scripts/release.mjs ppt"

@@ -2,6 +2,7 @@ import type { Api, Model } from "@mariozechner/pi-ai";
 import {
   AgentRuntime,
   type ChatMessage,
+  configureNamespace,
   type MessagePart,
   type ProviderConfig,
   type RuntimeState,
@@ -55,6 +56,10 @@ export function ChatProvider({
   children: ReactNode;
   adapter: AppAdapter;
 }) {
+  if (adapter.storageNamespace) {
+    configureNamespace(adapter.storageNamespace);
+  }
+
   const runtimeRef = useRef<AgentRuntime | null>(null);
   if (!runtimeRef.current) {
     runtimeRef.current = new AgentRuntime(adapter);
