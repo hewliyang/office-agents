@@ -30,7 +30,8 @@ Download [`manifest.prod.xml`](./manifest.prod.xml), then follow the instruction
 | Tool | What it does |
 |------|---------------|
 | `screenshot_slide` | Take a screenshot of a slide for visual verification |
-| `read_slide_text` | Read text content from slide shapes |
+| `list_slide_shapes` | List all shapes on a slide with IDs, names, types, positions |
+| `read_slide_text` | Read text content from slide shapes (by shape ID) |
 | `verify_slides` | Verify slide layout and content |
 | `execute_office_js` | Run raw Office.js inside PowerPoint.run (sandboxed) |
 | `edit_slide_text` | Edit text in slide shapes via OOXML |

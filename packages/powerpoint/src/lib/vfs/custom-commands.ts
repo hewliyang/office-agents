@@ -25,6 +25,8 @@ const IMAGE_REL_TYPE =
 
 const EMU_PER_INCH = 914400;
 const EMU_PER_CM = 360000;
+const DEFAULT_IMAGE_BOX_PT = { width: 360, height: 270 };
+const DEFAULT_ICON_BOX_PT = { width: 72, height: 72 };
 
 function parseUnit(value: number, unit: string): number {
   switch (unit) {
@@ -39,6 +41,120 @@ function parseUnit(value: number, unit: string): number {
     default:
       return Math.round(value * EMU_PER_INCH);
   }
+}
+
+function parseSvgNumber(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const match = value.trim().match(/^([+-]?(?:\d+\.?\d*|\.\d+))/);
+  if (!match) return undefined;
+  const parsed = Number.parseFloat(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function getImageDimensions(
+  data: Uint8Array,
+  ext: string,
+): Promise<{ width: number; height: number } | undefined> {
+  if (ext === "svg") {
+    const svgText = new TextDecoder().decode(data);
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (svg?.localName !== "svg") return undefined;
+
+    const viewBox = svg.getAttribute("viewBox");
+    if (viewBox) {
+      const parts = viewBox
+        .trim()
+        .split(/[\s,]+/)
+        .map((part) => Number.parseFloat(part));
+      if (
+        parts.length === 4 &&
+        parts.every((part) => Number.isFinite(part)) &&
+        parts[2] > 0 &&
+        parts[3] > 0
+      ) {
+        return { width: parts[2], height: parts[3] };
+      }
+    }
+
+    const width = parseSvgNumber(svg.getAttribute("width"));
+    const height = parseSvgNumber(svg.getAttribute("height"));
+    if (width && height && width > 0 && height > 0) {
+      return { width, height };
+    }
+
+    return undefined;
+  }
+
+  const bytes = new Uint8Array(data.byteLength);
+  bytes.set(data);
+  const blob = new Blob([bytes.buffer]);
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      return { width: img.naturalWidth, height: img.naturalHeight };
+    }
+    return undefined;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function resolveImageSize({
+  intrinsic,
+  requestedWidth,
+  requestedHeight,
+  widthProvided,
+  heightProvided,
+  defaultWidth,
+  defaultHeight,
+}: {
+  intrinsic?: { width: number; height: number };
+  requestedWidth?: number;
+  requestedHeight?: number;
+  widthProvided: boolean;
+  heightProvided: boolean;
+  defaultWidth: number;
+  defaultHeight: number;
+}): { width: number; height: number } {
+  const fallbackWidth = widthProvided ? requestedWidth ?? defaultWidth : defaultWidth;
+  const fallbackHeight = heightProvided
+    ? requestedHeight ?? defaultHeight
+    : defaultHeight;
+
+  if (!intrinsic || intrinsic.width <= 0 || intrinsic.height <= 0) {
+    return { width: fallbackWidth, height: fallbackHeight };
+  }
+
+  const aspect = intrinsic.width / intrinsic.height;
+
+  if (widthProvided && heightProvided) {
+    const boxWidth = requestedWidth ?? defaultWidth;
+    const boxHeight = requestedHeight ?? defaultHeight;
+    if (boxWidth / boxHeight > aspect) {
+      return { width: boxHeight * aspect, height: boxHeight };
+    }
+    return { width: boxWidth, height: boxWidth / aspect };
+  }
+
+  if (widthProvided) {
+    const width = requestedWidth ?? defaultWidth;
+    return { width, height: width / aspect };
+  }
+
+  if (heightProvided) {
+    const height = requestedHeight ?? defaultHeight;
+    return { width: height * aspect, height };
+  }
+
+  if (defaultWidth / defaultHeight > aspect) {
+    return { width: defaultHeight * aspect, height: defaultHeight };
+  }
+
+  return { width: defaultWidth, height: defaultWidth / aspect };
 }
 
 function detectMimeType(
@@ -305,14 +421,14 @@ const insertImageCmd: CustomCommand = {
         return {
           stdout: "",
           stderr:
-            "Usage: insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=in|cm|pt|emu] [--name=SHAPE_NAME]\n" +
+            "Usage: insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--name=SHAPE_NAME]\n" +
             "  file    - Path to image file in VFS (PNG, JPEG, GIF, BMP, SVG, WEBP)\n" +
             "  slide   - 1-based slide number\n" +
             "  --x     - Horizontal position from left edge (default: 0)\n" +
             "  --y     - Vertical position from top edge (default: 0)\n" +
-            "  --width - Image width (default: 5)\n" +
-            "  --height- Image height (default: 3.75)\n" +
-            "  --unit  - Unit: in (default), cm, pt, emu\n" +
+            "  --width - Image width (default box width: 360pt)\n" +
+            "  --height- Image height (default box height: 270pt)\n" +
+            "  --unit  - Unit: pt (default), in, cm, emu\n" +
             "  --name  - Shape name (default: image filename)\n",
           exitCode: 1,
         };
@@ -329,7 +445,7 @@ const insertImageCmd: CustomCommand = {
       }
       const slideIndex = slideNum - 1;
 
-      const unit = flags.unit || "in";
+      const unit = flags.unit || "pt";
       if (!["in", "cm", "pt", "emu"].includes(unit)) {
         return {
           stdout: "",
@@ -340,10 +456,12 @@ const insertImageCmd: CustomCommand = {
 
       const x = flags.x ? Number.parseFloat(flags.x) : 0;
       const y = flags.y ? Number.parseFloat(flags.y) : 0;
-      const width = flags.width ? Number.parseFloat(flags.width) : 5;
-      const height = flags.height ? Number.parseFloat(flags.height) : 3.75;
+      const width = flags.width ? Number.parseFloat(flags.width) : undefined;
+      const height = flags.height ? Number.parseFloat(flags.height) : undefined;
+      const widthProvided = width !== undefined;
+      const heightProvided = height !== undefined;
 
-      if ([x, y, width, height].some((v) => Number.isNaN(v))) {
+      if ([x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))) {
         return {
           stdout: "",
           stderr: "x, y, width, height must be valid numbers",
@@ -356,6 +474,16 @@ const insertImageCmd: CustomCommand = {
         const { mime, ext } = detectMimeType(filePath, data);
         const fileName = filePath.split("/").pop() || "image";
         const shapeName = flags.name || fileName;
+        const intrinsic = await getImageDimensions(data, ext);
+        const resolvedSize = resolveImageSize({
+          intrinsic,
+          requestedWidth: width,
+          requestedHeight: height,
+          widthProvided,
+          heightProvided,
+          defaultWidth: DEFAULT_IMAGE_BOX_PT.width,
+          defaultHeight: DEFAULT_IMAGE_BOX_PT.height,
+        });
 
         await insertImageIntoSlide({
           slideIndex,
@@ -365,12 +493,12 @@ const insertImageCmd: CustomCommand = {
           shapeName,
           offX: parseUnit(x, unit),
           offY: parseUnit(y, unit),
-          cx: parseUnit(width, unit),
-          cy: parseUnit(height, unit),
+          cx: parseUnit(resolvedSize.width, unit),
+          cy: parseUnit(resolvedSize.height, unit),
         });
 
         return {
-          stdout: `Inserted ${fileName} on slide ${slideNum} at (${x}, ${y}) size ${width}×${height} ${unit}`,
+          stdout: `Inserted ${fileName} on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}`,
           stderr: "",
           exitCode: 0,
         };
@@ -508,14 +636,14 @@ const insertIconCmd: CustomCommand = {
         return {
           stdout: "",
           stderr:
-            "Usage: insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=in|cm|pt|emu] [--color=#HEX] [--name=SHAPE_NAME]\n" +
+            "Usage: insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--color=#HEX] [--name=SHAPE_NAME]\n" +
             "  icon_id  - Icon ID from search-icons (e.g. 'mdi:alert', 'fluent:warning-24-filled')\n" +
             "  slide    - 1-based slide number\n" +
             "  --x      - Horizontal position from left edge (default: 0)\n" +
             "  --y      - Vertical position from top edge (default: 0)\n" +
-            "  --width  - Icon width (default: 1)\n" +
-            "  --height - Icon height (default: 1)\n" +
-            "  --unit   - Unit: in (default), cm, pt, emu\n" +
+            "  --width  - Icon width (default box width: 72pt)\n" +
+            "  --height - Icon height (default box height: 72pt)\n" +
+            "  --unit   - Unit: pt (default), in, cm, emu\n" +
             "  --color  - Icon color as hex (e.g. '#FF5733'). Only works on mono icons.\n" +
             "  --name   - Shape name (default: icon ID)\n",
           exitCode: 1,
@@ -542,7 +670,7 @@ const insertIconCmd: CustomCommand = {
         };
       }
 
-      const unit = flags.unit || "in";
+      const unit = flags.unit || "pt";
       if (!["in", "cm", "pt", "emu"].includes(unit)) {
         return {
           stdout: "",
@@ -553,10 +681,12 @@ const insertIconCmd: CustomCommand = {
 
       const x = flags.x ? Number.parseFloat(flags.x) : 0;
       const y = flags.y ? Number.parseFloat(flags.y) : 0;
-      const width = flags.width ? Number.parseFloat(flags.width) : 1;
-      const height = flags.height ? Number.parseFloat(flags.height) : 1;
+      const width = flags.width ? Number.parseFloat(flags.width) : undefined;
+      const height = flags.height ? Number.parseFloat(flags.height) : undefined;
+      const widthProvided = width !== undefined;
+      const heightProvided = height !== undefined;
 
-      if ([x, y, width, height].some((v) => Number.isNaN(v))) {
+      if ([x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))) {
         return {
           stdout: "",
           stderr: "x, y, width, height must be valid numbers",
@@ -587,6 +717,16 @@ const insertIconCmd: CustomCommand = {
         const svgData = new TextEncoder().encode(svgText);
         const shapeName = flags.name || iconId;
         const mediaCount = Date.now();
+        const intrinsic = await getImageDimensions(svgData, "svg");
+        const resolvedSize = resolveImageSize({
+          intrinsic,
+          requestedWidth: width,
+          requestedHeight: height,
+          widthProvided,
+          heightProvided,
+          defaultWidth: DEFAULT_ICON_BOX_PT.width,
+          defaultHeight: DEFAULT_ICON_BOX_PT.height,
+        });
 
         await insertImageIntoSlide({
           slideIndex: slideNum - 1,
@@ -596,14 +736,14 @@ const insertIconCmd: CustomCommand = {
           shapeName,
           offX: parseUnit(x, unit),
           offY: parseUnit(y, unit),
-          cx: parseUnit(width, unit),
-          cy: parseUnit(height, unit),
+          cx: parseUnit(resolvedSize.width, unit),
+          cy: parseUnit(resolvedSize.height, unit),
           mediaPrefix: `icon_${mediaCount}`,
         });
 
         const colorInfo = flags.color ? ` (color: ${flags.color})` : "";
         return {
-          stdout: `Inserted icon "${iconId}" on slide ${slideNum} at (${x}, ${y}) size ${width}×${height} ${unit}${colorInfo}`,
+          stdout: `Inserted icon "${iconId}" on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}${colorInfo}`,
           stderr: "",
           exitCode: 0,
         };

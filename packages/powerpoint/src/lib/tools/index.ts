@@ -5,6 +5,7 @@ import { editSlideMasterTool } from "./edit-slide-master";
 import { editSlideTextTool } from "./edit-slide-text";
 import { editSlideXmlTool } from "./edit-slide-xml";
 import { executeOfficeJsTool } from "./execute-office-js";
+import { listSlideShapesTool } from "./list-slide-shapes";
 import { readSlideTextTool } from "./read-slide-text";
 import { screenshotSlideTool } from "./screenshot-slide";
 import { verifySlidesTool } from "./verify-slides";
@@ -15,6 +16,7 @@ export const PPT_TOOLS = [
   bashTool,
   // PPT read tools
   screenshotSlideTool,
+  listSlideShapesTool,
   readSlideTextTool,
   verifySlidesTool,
   // PPT write tools
@@ -35,6 +37,7 @@ export {
   editSlideTextTool,
   editSlideXmlTool,
   executeOfficeJsTool,
+  listSlideShapesTool,
   readSlideTextTool,
   screenshotSlideTool,
   verifySlidesTool,

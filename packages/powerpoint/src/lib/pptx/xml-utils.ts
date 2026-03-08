@@ -39,6 +39,24 @@ export function findShapeByName(
   return null;
 }
 
+export function findShapeById(
+  doc: Document,
+  shapeId: string,
+): Element | null {
+  const shapes = doc.getElementsByTagNameNS(NS_P, "sp");
+
+  for (let i = 0; i < shapes.length; i++) {
+    const shape = shapes[i];
+    const nvSpPr = shape.getElementsByTagNameNS(NS_P, "nvSpPr")[0];
+    if (!nvSpPr) continue;
+
+    const cNvPr = nvSpPr.getElementsByTagNameNS(NS_P, "cNvPr")[0];
+    if (cNvPr?.getAttribute("id") === shapeId) return shape;
+  }
+
+  return null;
+}
+
 export async function extractExternalReferences(
   zip: import("jszip"),
 ): Promise<Set<string>> {

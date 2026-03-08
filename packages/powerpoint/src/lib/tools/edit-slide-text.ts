@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { safeRun, withSlideZip } from "../pptx/slide-zip";
-import { findShapeByName, sanitizeXmlAmpersands } from "../pptx/xml-utils";
+import { findShapeById, sanitizeXmlAmpersands } from "../pptx/xml-utils";
 import { defineTool, toolError, toolSuccess } from "./types";
 
 /* global PowerPoint */
@@ -22,19 +22,13 @@ export const editSlideTextTool = defineTool({
       description:
         "0-based slide index (user's slide 1 = index 0, slide 3 = index 2)",
     }),
-    shape_name: Type.String({
+    shape_id: Type.String({
       description:
-        'Target shape name (e.g., "Title 1", "Content Placeholder 2")',
+        'Shape ID from list_slide_shapes or verify_slides output (e.g., "2", "20"). Stable and locale-independent.',
     }),
     code: Type.String({
       description: "Raw OOXML <a:p> paragraph XML to replace the shape's text",
     }),
-    occurrence: Type.Optional(
-      Type.Number({
-        description:
-          "0-based index when multiple shapes share the same name (default 0).",
-      }),
-    ),
     explanation: Type.Optional(
       Type.String({
         description: "Brief description (max 50 chars)",
@@ -54,14 +48,11 @@ export const editSlideTextTool = defineTool({
 
             const xml = await slideFile.async("string");
             const doc = new DOMParser().parseFromString(xml, "text/xml");
-            const occurrence = params.occurrence ?? 0;
 
-            const shape = findShapeByName(doc, params.shape_name, occurrence);
+            const shape = findShapeById(doc, params.shape_id);
             if (!shape) {
               throw new Error(
-                occurrence > 0
-                  ? `Shape "${params.shape_name}" occurrence ${occurrence} not found on slide ${params.slide_index + 1}`
-                  : `Shape "${params.shape_name}" not found on slide ${params.slide_index + 1}`,
+                `Shape with id "${params.shape_id}" not found on slide ${params.slide_index + 1}. Use list_slide_shapes to discover valid shape IDs.`,
               );
             }
 
