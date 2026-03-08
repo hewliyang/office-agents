@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hewliyang/open-excel.git",
+    "url": "https://github.com/hewliyang/office-agents.git",
     "directory": "packages/sdk"
   },
   "files": [
