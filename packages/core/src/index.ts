@@ -80,6 +80,7 @@ export {
   removeSkill,
   renameSession,
   resetVfs,
+  resizeImage,
   restoreVfs,
   type SearchOptions,
   type SearchProvider,

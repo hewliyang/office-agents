@@ -1,5 +1,7 @@
 // Runtime
 
+export type { ImageResizeOptions, ResizedImage } from "./image-resize";
+export { resizeImage } from "./image-resize";
 // Lockdown
 export { ensureLockdown } from "./lockdown";
 // Message utilities

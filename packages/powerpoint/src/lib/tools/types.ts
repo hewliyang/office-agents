@@ -1,4 +1,5 @@
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
+import { resizeImage } from "@office-agents/core";
 import type { Static, TObject } from "@sinclair/typebox";
 
 export type ToolResult = AgentToolResult<undefined>;
@@ -83,13 +84,17 @@ export function toolText(text: string): ToolResult {
   };
 }
 
-export function toolImage(base64Data: string, mimeType: string): ToolResult {
+export async function toolImage(
+  base64Data: string,
+  mimeType: string,
+): Promise<ToolResult> {
+  const resized = await resizeImage(base64Data, mimeType);
   return {
     content: [
       {
         type: "image" as const,
-        data: base64Data,
-        mimeType,
+        data: resized.data,
+        mimeType: resized.mimeType,
       },
     ],
     details: undefined,

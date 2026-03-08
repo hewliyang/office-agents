@@ -1,4 +1,5 @@
 import { Type } from "@sinclair/typebox";
+import { resizeImage } from "../image-resize";
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -68,16 +69,21 @@ export const readTool = defineTool({
       const { isImage, mimeType } = getFileType(filename);
 
       if (isImage) {
-        // Return image as base64 for vision models
         const data = await readFileBuffer(fullPath);
         const base64 = toBase64(data);
+        const resized = await resizeImage(base64, mimeType);
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Read image file: ${filename} [${mimeType}]`,
+              text: `Read image file: ${filename} [${resized.mimeType}]`,
             },
-            { type: "image" as const, data: base64, mimeType },
+            {
+              type: "image" as const,
+              data: resized.data,
+              mimeType: resized.mimeType,
+            },
           ],
           details: undefined,
         };

@@ -31,7 +31,7 @@ export const screenshotSlideTool = defineTool({
         return imageResult.value;
       });
 
-      return toolImage(imageData, "image/png");
+      return await toolImage(imageData, "image/png");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to screenshot slide";

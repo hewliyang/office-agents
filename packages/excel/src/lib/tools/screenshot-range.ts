@@ -1,5 +1,6 @@
 /* global Excel */
 
+import { resizeImage } from "@office-agents/core";
 import { Type } from "@sinclair/typebox";
 import { parseRange } from "../dirty-tracker";
 import { getWorksheetById } from "../excel/api";
@@ -186,6 +187,8 @@ export const screenshotRangeTool = defineTool({
         data.rowHeights,
       );
 
+      const resized = await resizeImage(base64, "image/png");
+
       return {
         content: [
           {
@@ -194,8 +197,8 @@ export const screenshotRangeTool = defineTool({
           },
           {
             type: "image" as const,
-            data: base64,
-            mimeType: "image/png" as const,
+            data: resized.data,
+            mimeType: resized.mimeType,
           },
         ],
         details: undefined,
