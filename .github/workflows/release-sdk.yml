@@ -52,5 +52,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: SDK ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body_path: /tmp/release-notes.md
