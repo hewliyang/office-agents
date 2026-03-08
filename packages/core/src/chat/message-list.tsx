@@ -76,15 +76,14 @@ function cleanResult(raw: string): string {
     const parsed = JSON.parse(raw);
     if (typeof parsed === "object" && parsed !== null) {
       const cleaned = { ...parsed };
-      let changed = false;
       for (const key of HIDDEN_RESULT_FIELDS) {
         if (key in cleaned) {
           delete cleaned[key];
-          changed = true;
         }
       }
-      if (changed) return JSON.stringify(cleaned, null, 2);
+      return JSON.stringify(cleaned, null, 2);
     }
+    return JSON.stringify(parsed, null, 2);
   } catch {
     // not JSON, return as-is
   }
