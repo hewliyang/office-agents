@@ -6,6 +6,7 @@ import type {
 import { getOrCreateDocumentId, useChat } from "@office-agents/core";
 import { Edit3 } from "lucide-react";
 import { useMemo } from "react";
+import { SelectionIndicator } from "./components/selection-indicator";
 import { type DirtyRange, mergeRanges } from "./dirty-tracker";
 import excelApiDts from "./docs/excel-officejs-api.d.ts?raw";
 import { getWorkbookMetadata, navigateTo } from "./excel/api";
@@ -53,6 +54,7 @@ export function createExcelAdapter(): AppAdapter {
     metadataTag: "wb_context",
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to interact with your Excel data",
+    SelectionIndicator,
     buildSystemPrompt: buildExcelSystemPrompt,
 
     getDocumentId: async () => {

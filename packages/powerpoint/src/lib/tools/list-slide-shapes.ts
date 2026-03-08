@@ -60,9 +60,7 @@ export const listSlideShapesTool = defineTool({
       return toolSuccess({ success: true, result });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to list slide shapes";
+        error instanceof Error ? error.message : "Failed to list slide shapes";
       return toolError(message);
     }
   },

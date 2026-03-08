@@ -39,10 +39,7 @@ export function findShapeByName(
   return null;
 }
 
-export function findShapeById(
-  doc: Document,
-  shapeId: string,
-): Element | null {
+export function findShapeById(doc: Document, shapeId: string): Element | null {
   const shapes = doc.getElementsByTagNameNS(NS_P, "sp");
 
   for (let i = 0; i < shapes.length; i++) {

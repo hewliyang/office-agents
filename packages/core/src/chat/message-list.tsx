@@ -120,11 +120,11 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center gap-1.5 px-2 py-1 text-[10px] tracking-wider text-(--chat-text-secondary) hover:bg-(--chat-bg-secondary) transition-colors ${explanation ? "normal-case" : "uppercase"}`}
+        className={`w-full min-w-0 flex items-center gap-1.5 px-2 py-1 text-[10px] tracking-wider text-(--chat-text-secondary) hover:bg-(--chat-bg-secondary) transition-colors ${explanation ? "normal-case" : "uppercase"}`}
       >
         {isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
         <Wrench size={10} />
-        <span className="flex-1 text-left font-medium truncate">
+        <span className="min-w-0 flex-1 text-left font-medium truncate">
           {explanation || part.name}
         </span>
         {!isExpanded && ToolExtras && (
@@ -134,7 +134,7 @@ function ToolCallBlock({ part }: { part: ToolCallPart }) {
             expanded={false}
           />
         )}
-        {statusIcon}
+        <span className="shrink-0">{statusIcon}</span>
       </button>
       {isExpanded && (
         <div className="border-t border-(--chat-border)">

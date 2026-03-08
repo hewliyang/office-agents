@@ -120,9 +120,11 @@ function resolveImageSize({
   defaultWidth: number;
   defaultHeight: number;
 }): { width: number; height: number } {
-  const fallbackWidth = widthProvided ? requestedWidth ?? defaultWidth : defaultWidth;
+  const fallbackWidth = widthProvided
+    ? (requestedWidth ?? defaultWidth)
+    : defaultWidth;
   const fallbackHeight = heightProvided
-    ? requestedHeight ?? defaultHeight
+    ? (requestedHeight ?? defaultHeight)
     : defaultHeight;
 
   if (!intrinsic || intrinsic.width <= 0 || intrinsic.height <= 0) {
@@ -461,7 +463,9 @@ const insertImageCmd: CustomCommand = {
       const widthProvided = width !== undefined;
       const heightProvided = height !== undefined;
 
-      if ([x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))) {
+      if (
+        [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
+      ) {
         return {
           stdout: "",
           stderr: "x, y, width, height must be valid numbers",
@@ -686,7 +690,9 @@ const insertIconCmd: CustomCommand = {
       const widthProvided = width !== undefined;
       const heightProvided = height !== undefined;
 
-      if ([x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))) {
+      if (
+        [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
+      ) {
         return {
           stdout: "",
           stderr: "x, y, width, height must be valid numbers",
