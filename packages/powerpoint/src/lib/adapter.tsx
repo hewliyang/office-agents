@@ -2,8 +2,8 @@ import type { AppAdapter } from "@office-agents/core";
 import { getOrCreateDocumentId } from "@office-agents/core";
 import { SelectionIndicator } from "./components/selection-indicator";
 import pptApiDts from "./docs/powerpoint-officejs-api.d.ts?raw";
-import { PPT_TOOLS } from "./tools";
 import { buildPowerPointSystemPrompt } from "./system-prompt";
+import { PPT_TOOLS } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
 
 /* global PowerPoint, Office */
