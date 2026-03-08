@@ -89,10 +89,11 @@ pnpm validate            # Validate Office manifests
 
 Each app is released independently with its own version tag, changelog, and Cloudflare Pages project.
 
-| App        | Tag prefix  | Changelog                        | CF Pages project |
-| ---------- | ----------- | -------------------------------- | ---------------- |
-| Excel      | `excel-v*`  | `packages/excel/CHANGELOG.md`      | `openexcel`      |
-| PowerPoint | `ppt-v*`    | `packages/powerpoint/CHANGELOG.md` | `openppt`        |
+| Package    | Tag prefix  | Changelog                          | Deploy target    |
+| ---------- | ----------- | ---------------------------------- | ---------------- |
+| Excel      | `excel-v*`  | `packages/excel/CHANGELOG.md`      | CF Pages `openexcel` |
+| PowerPoint | `ppt-v*`    | `packages/powerpoint/CHANGELOG.md` | CF Pages `openppt`   |
+| SDK        | `sdk-v*`    | `packages/sdk/CHANGELOG.md`        | npm `@office-agents/sdk` |
 
 ### Steps (per app)
 
@@ -101,6 +102,7 @@ Each app is released independently with its own version tag, changelog, and Clou
    ```bash
    pnpm release:excel patch   # or minor/major
    pnpm release:ppt patch     # or minor/major
+   pnpm release:sdk patch     # or minor/major
    ```
 3. The script bumps the version, stamps the changelog, commits, tags (`excel-v*` / `ppt-v*`), and pushes
 4. CI builds, deploys to Cloudflare Pages, and creates a GitHub release

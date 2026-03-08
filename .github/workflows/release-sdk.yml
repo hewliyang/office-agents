@@ -1,0 +1,56 @@
+name: Release SDK
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Build & Release SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#sdk-v}"
+          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" packages/sdk/CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "::warning::No changelog entry found for ${VERSION}, falling back to Unreleased"
+            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' packages/sdk/CHANGELOG.md)
+          fi
+          echo "$NOTES" > /tmp/release-notes.md
+
+      - name: Publish to npm
+        run: pnpm --filter @office-agents/sdk publish --access public --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SDK ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
