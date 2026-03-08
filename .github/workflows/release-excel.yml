@@ -45,7 +45,7 @@ jobs:
           fi
           echo "$NOTES" > /tmp/release-notes.md
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Excel to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
