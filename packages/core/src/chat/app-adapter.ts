@@ -30,6 +30,7 @@ export interface AppAdapter {
   emptyStateMessage?: string;
   staticFiles?: Record<string, string>;
   customCommands?: () => CustomCommand[];
+  hasImageSearch?: boolean;
   ToolExtras?: ComponentType<ToolExtrasProps>;
   Link?: ComponentType<LinkProps>;
   SelectionIndicator?: ComponentType;

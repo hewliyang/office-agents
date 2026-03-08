@@ -317,7 +317,8 @@ export function SettingsPanel() {
   const fetchProviders = listFetchProviders();
   const needsBraveKey = webSearchProvider === "brave";
   const needsSerperKey =
-    webSearchProvider === "serper" || imageSearchProvider === "serper";
+    webSearchProvider === "serper" ||
+    (adapter.hasImageSearch && imageSearchProvider === "serper");
   const needsExaKey = webSearchProvider === "exa" || webFetchProvider === "exa";
 
   const updateWebSettings = useCallback(
@@ -901,30 +902,32 @@ export function SettingsPanel() {
               </p>
             </label>
 
-            <label className="block">
-              <span className="block text-xs text-(--chat-text-secondary) mb-1.5">
-                Default Image Search Provider
-              </span>
-              <select
-                value={imageSearchProvider}
-                onChange={(e) =>
-                  updateWebSettings({ imageSearchProvider: e.target.value })
-                }
-                className="w-full bg-(--chat-input-bg) text-(--chat-text-primary)
-                           text-sm px-3 py-2 border border-(--chat-border)
-                           focus:outline-none focus:border-(--chat-border-active)"
-                style={inputStyle}
-              >
-                {imageSearchProviders.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-(--chat-text-muted) mt-1">
-                Used by image-search.
-              </p>
-            </label>
+            {adapter.hasImageSearch && (
+              <label className="block">
+                <span className="block text-xs text-(--chat-text-secondary) mb-1.5">
+                  Default Image Search Provider
+                </span>
+                <select
+                  value={imageSearchProvider}
+                  onChange={(e) =>
+                    updateWebSettings({ imageSearchProvider: e.target.value })
+                  }
+                  className="w-full bg-(--chat-input-bg) text-(--chat-text-primary)
+                             text-sm px-3 py-2 border border-(--chat-border)
+                             focus:outline-none focus:border-(--chat-border-active)"
+                  style={inputStyle}
+                >
+                  {imageSearchProviders.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-(--chat-text-muted) mt-1">
+                  Used by image-search.
+                </p>
+              </label>
+            )}
 
             <label className="block">
               <span className="block text-xs text-(--chat-text-secondary) mb-1.5">

@@ -12,6 +12,7 @@ export function createPowerPointAdapter(): AppAdapter {
   return {
     tools: PPT_TOOLS,
     customCommands: getCustomCommands,
+    hasImageSearch: true,
     staticFiles: {
       "/home/user/docs/powerpoint-officejs-api.d.ts": pptApiDts,
     },
