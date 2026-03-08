@@ -61,6 +61,16 @@ export interface ImageSearchOptions {
   hl?: string;
 }
 
+export interface ImageSearchProvider {
+  id: string;
+  requiresApiKey?: boolean;
+  searchImages: (
+    query: string,
+    options: ImageSearchOptions,
+    context: WebContext,
+  ) => Promise<ImageSearchResult[]>;
+}
+
 export interface FetchProvider {
   id: string;
   requiresApiKey?: boolean;

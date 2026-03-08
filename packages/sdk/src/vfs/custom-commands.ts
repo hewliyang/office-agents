@@ -540,6 +540,7 @@ const imageSearchCmd: Command = defineCommand("image-search", async (args) => {
         proxyUrl: getProxyUrl(),
         apiKeys: webConfig.apiKeys,
       },
+      webConfig.imageSearchProvider,
     );
 
     if (results.length === 0) {
