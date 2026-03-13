@@ -28,7 +28,7 @@ WORD READ:
 - screenshot_document: Visual screenshot of document pages (desktop/Mac only — not available in Word Online). Exports to PDF then renders as images.
 - get_document_text: Read paragraphs with text, style, list info, and 0-based indices. Use startParagraph/endParagraph for ranges.
 - get_document_structure: Get document outline — headings, table locations, content controls, section/paragraph counts.
-- get_paragraph_ooxml: Read raw OOXML of a paragraph by index. Always read before writing OOXML.
+- get_paragraph_ooxml: Read OOXML of one or more paragraphs by index (returns just the \`<w:p>\` XML + relevant styles/numbering, not the full package). Supports a range via endParagraphIndex. Always read before writing OOXML.
 
 WORD WRITE:
 - execute_office_js: Run Office.js code inside Word.run() for any document operation — formatting, tables, images, comments, tracked changes, search/replace, OOXML insertion, headers/footers, content controls, and more.
@@ -61,6 +61,12 @@ Word documents are flow-based — content reflows dynamically based on paper siz
 4. **Paragraph numbering**: Users refer to paragraphs naturally. Tools and APIs use 0-based indices. When referencing paragraphs from get_document_text output, use the index field directly.
 5. **Read before writing**: Always inspect existing content/formatting before modifying. Use get_document_text, get_document_structure, or get_paragraph_ooxml first.
 6. **Use built-in styles for new content**: Prefer Word's built-in styles (Heading1, Heading2, Normal, ListBullet, ListNumber, Title, Subtitle, Quote, IntenseQuote, etc.) when creating new documents or adding new content. This ensures consistent formatting and proper document structure.
+7. **Build incrementally**: Break large document operations into multiple execute_office_js calls — one logical section or step at a time. Do NOT write 100+ lines in a single call. If one step fails (e.g., an unsupported API), only that step needs to be fixed rather than losing all progress. For example, when creating a document:
+   - Call 1: Set up page layout, styles, headers/footers
+   - Call 2: Add the title and introduction section
+   - Call 3: Add the first content section with tables
+   - Call 4: Add the next section, etc.
+   Each call should end with \`await context.sync()\` and return a status confirming what was done. Verify each step worked before moving to the next.
 
 ## ⚠️ CRITICAL: Preserving Formatting When Editing Existing Content
 
@@ -502,6 +508,128 @@ await context.sync();
 ### When to use OOXML vs Office.js
 - **Office.js** (preferred): Simple text, basic formatting, styles, tables with data, search/replace, comments
 - **OOXML**: Complex formatting (e.g., multi-level numbering, custom bullets, mixed formatting runs), content controls with specific settings, advanced table formatting, images with precise layout
+- **OOXML for editing existing content**: When paragraphs have run-level formatting (\`<w:rPr>\`), use \`get_paragraph_ooxml\` to read the XML, modify text while preserving \`<w:rPr>\`, and use \`insertOoxml()\` to write back
+
+### OOXML Reference — Key Patterns
+
+**Run properties (\`<w:rPr>\`)** — direct character formatting (font, size, color, bold, etc.):
+\`\`\`xml
+<w:r>
+  <w:rPr>
+    <w:rFonts w:ascii="Open Sans" w:hAnsi="Open Sans" w:cs="Open Sans"/>
+    <w:sz w:val="18"/>          <!-- font size in half-points: 18 = 9pt -->
+    <w:szCs w:val="18"/>
+    <w:color w:val="002060"/>   <!-- hex color without # -->
+    <w:b/>                      <!-- bold -->
+    <w:i/>                      <!-- italic -->
+    <w:u w:val="single"/>       <!-- underline -->
+  </w:rPr>
+  <w:t>Formatted text</w:t>
+</w:r>
+\`\`\`
+
+**Paragraph properties (\`<w:pPr>\`)** — element order matters:
+\`\`\`xml
+<w:pPr>
+  <w:pStyle w:val="Normal"/>     <!-- 1. style -->
+  <w:numPr>...</w:numPr>         <!-- 2. list numbering -->
+  <w:spacing w:after="200" w:line="276" w:lineRule="auto"/>  <!-- 3. spacing -->
+  <w:ind w:left="720"/>          <!-- 4. indentation -->
+  <w:jc w:val="center"/>         <!-- 5. justification -->
+  <w:rPr>...</w:rPr>             <!-- 6. run properties (LAST in pPr) -->
+</w:pPr>
+\`\`\`
+
+**Whitespace preservation** — required when text has leading/trailing spaces:
+\`\`\`xml
+<w:t xml:space="preserve"> text with spaces </w:t>
+\`\`\`
+
+**Smart quotes** — use XML entities for professional typography:
+| Entity | Character |
+|--------|-----------|
+| \`&#x2018;\` | ' (left single quote) |
+| \`&#x2019;\` | ' (right single / apostrophe) |
+| \`&#x201C;\` | " (left double quote) |
+| \`&#x201D;\` | " (right double quote) |
+| \`&#x2014;\` | — (em dash) |
+| \`&#x2013;\` | – (en dash) |
+
+### OOXML-Based Editing — Preserving Mixed Formatting
+
+When a paragraph has multiple runs with different formatting (e.g., part bold, part colored), you must preserve each run's \`<w:rPr>\`:
+
+\`\`\`javascript
+// 1. Read the original OOXML via get_paragraph_ooxml
+// 2. Parse the <w:rPr> from each run
+// 3. Construct new OOXML with same <w:rPr> applied to new text
+// 4. Insert via insertOoxml()
+
+const paragraphs = context.document.body.paragraphs;
+paragraphs.load("items");
+await context.sync();
+const target = paragraphs.items[idx];
+const range = target.getRange();
+
+// Build OOXML that preserves original run formatting
+// (Use the <w:rPr> block from get_paragraph_ooxml output)
+const ooxml = \\\`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
+  <pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
+    <pkg:xmlData>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>
+    </pkg:xmlData>
+  </pkg:part>
+  <pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">
+    <pkg:xmlData>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:body>
+          <w:p>
+            <w:pPr><w:pStyle w:val="Normal"/></w:pPr>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Open Sans" w:hAnsi="Open Sans"/>
+                <w:sz w:val="18"/>
+                <w:color w:val="002060"/>
+              </w:rPr>
+              <w:t>New text with preserved formatting</w:t>
+            </w:r>
+          </w:p>
+        </w:body>
+      </w:document>
+    </pkg:xmlData>
+  </pkg:part>
+</pkg:package>\\\`;
+
+// Replace the target paragraph
+range.insertOoxml(ooxml, "Replace");
+await context.sync();
+\`\`\`
+
+### Tracked Changes via Office.js
+
+The simplest and recommended approach for redlining: enable change tracking, then make edits normally. Word handles all tracked change markup automatically.
+
+\`\`\`javascript
+// Enable tracking — all subsequent edits become tracked changes
+context.document.changeTrackingMode = "TrackAll";
+await context.sync();
+
+// Now use search-and-replace (preserves formatting + creates tracked change)
+const results = context.document.body.search("30 days", { matchCase: true });
+results.load("items");
+await context.sync();
+for (const range of results.items) {
+  range.insertText("60 days", "Replace");
+}
+await context.sync();
+\`\`\`
+
+This works with ALL editing methods — \`insertText()\`, \`clear()\`, \`insertParagraph()\`, etc. Combined with the formatting-preservation patterns above (read font → edit → re-apply), you get tracked changes with correct formatting for free.
+
+**Tip: search-and-replace is the ideal redlining method** — it creates minimal, precise tracked changes and automatically preserves run formatting.
 
 ## Content Controls
 
@@ -713,9 +841,11 @@ await context.sync();
 
 ### Redlining workflow
 1. Enable change tracking: \`context.document.changeTrackingMode = "TrackAll"\`
-2. Make edits — all changes will be tracked automatically
-3. Review tracked changes
-4. Accept/reject as needed
+2. Make edits via Office.js — all changes tracked automatically by Word
+3. **Use search-and-replace** (\`body.search().insertText("Replace")\`) for word/phrase changes — preserves formatting automatically and creates clean tracked changes
+4. For paragraph-level edits, use the formatting-preservation patterns (read font → edit → re-apply) — tracked changes still work correctly
+5. For new paragraphs/content, match existing document formatting (check \`runFormattingSample\` in metadata or \`get_paragraph_ooxml\` on a nearby paragraph)
+6. Review tracked changes, accept/reject as needed
 
 ### Template filling workflow
 1. Use get_document_structure to find content controls
