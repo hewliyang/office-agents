@@ -334,11 +334,7 @@ function ChatHeader({
                   ? "text-(--chat-accent) hover:text-(--chat-text-primary)"
                   : "text-(--chat-text-muted) hover:text-(--chat-text-primary)"
               }`}
-              title={
-                followMode
-                  ? "Follow mode: ON - Click to disable"
-                  : "Follow mode: OFF - Click to enable"
-              }
+              data-tooltip={followMode ? "Follow mode: ON" : "Follow mode: OFF"}
             >
               {followMode ? <Eye size={14} /> : <EyeOff size={14} />}
             </button>
@@ -347,9 +343,7 @@ function ChatHeader({
             type="button"
             onClick={onThemeToggle}
             className="p-1.5 text-(--chat-text-muted) hover:text-(--chat-text-primary) transition-colors"
-            title={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-            }
+            data-tooltip={theme === "dark" ? "Light mode" : "Dark mode"}
           >
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </button>
@@ -358,7 +352,7 @@ function ChatHeader({
               type="button"
               onClick={clearMessages}
               className="p-1.5 text-(--chat-text-muted) hover:text-(--chat-error) transition-colors"
-              title="Clear messages"
+              data-tooltip="Clear messages"
             >
               <Trash2 size={14} />
             </button>

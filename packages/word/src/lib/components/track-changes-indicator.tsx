@@ -43,6 +43,19 @@ function getTitle(mode: ChangeTrackingMode | null): string {
   }
 }
 
+function getTooltip(mode: ChangeTrackingMode | null): string {
+  switch (mode) {
+    case "TrackAll":
+      return "Track Changes: ON";
+    case "TrackMineOnly":
+      return "Track Changes: ON (mine)";
+    case "Off":
+      return "Track Changes: OFF";
+    default:
+      return "Track Changes";
+  }
+}
+
 export function TrackChangesIndicator() {
   const [mode, setMode] = useState<ChangeTrackingMode | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -118,7 +131,7 @@ export function TrackChangesIndicator() {
           ? "text-(--chat-accent) hover:text-(--chat-text-primary)"
           : "text-(--chat-text-muted) hover:text-(--chat-text-primary)"
       } ${isUpdating || mode === "Unknown" ? "opacity-70" : ""}`}
-      title={getTitle(mode)}
+      data-tooltip={getTooltip(mode)}
       aria-label={getTitle(mode)}
     >
       <Pencil size={14} />
