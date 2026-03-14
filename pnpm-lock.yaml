@@ -23,6 +23,9 @@ importers:
       '@office-agents/bridge':
         specifier: workspace:*
         version: link:packages/bridge
+      '@types/node':
+        specifier: ^25.1.0
+        version: 25.1.0
       typescript:
         specifier: ^5.4.2
         version: 5.9.3
