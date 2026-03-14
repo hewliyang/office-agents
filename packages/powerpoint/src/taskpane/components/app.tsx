@@ -1,6 +1,7 @@
+import { startOfficeBridge } from "@office-agents/bridge/client";
 import { ChatInterface, ErrorBoundary } from "@office-agents/core";
 import type { FC } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { createPowerPointAdapter } from "../../lib/adapter";
 
 interface AppProps {
@@ -9,6 +10,14 @@ interface AppProps {
 
 const App: FC<AppProps> = () => {
   const adapter = useMemo(() => createPowerPointAdapter(), []);
+
+  useEffect(() => {
+    const bridge = startOfficeBridge({
+      app: "powerpoint",
+      adapter,
+    });
+    return () => bridge.stop();
+  }, [adapter]);
 
   return (
     <ErrorBoundary>

@@ -3,7 +3,9 @@
   "references": [
     { "path": "packages/sdk" },
     { "path": "packages/core" },
+    { "path": "packages/bridge" },
     { "path": "packages/excel" },
-    { "path": "packages/powerpoint" }
+    { "path": "packages/powerpoint" },
+    { "path": "packages/word" }
   ]
 }

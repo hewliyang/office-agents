@@ -1,0 +1,26 @@
+{
+  "name": "@office-agents/bridge",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "office-bridge": "bin/office-bridge.js"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./protocol": "./src/protocol.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "cli": "pnpm build && node dist/cli.js",
+    "start": "pnpm build && node dist/cli.js serve",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@office-agents/core": "workspace:*",
+    "ws": "^8.18.3"
+  }
+}

@@ -20,6 +20,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.13
         version: 2.3.13
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:packages/bridge
       typescript:
         specifier: ^5.4.2
         version: 5.9.3
@@ -29,6 +32,15 @@ importers:
       wrangler:
         specifier: ^4.71.0
         version: 4.71.0
+
+  packages/bridge:
+    dependencies:
+      '@office-agents/core':
+        specifier: workspace:*
+        version: link:../core
+      ws:
+        specifier: ^8.18.3
+        version: 8.19.0
 
   packages/core:
     dependencies:
@@ -78,6 +90,9 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -169,6 +184,9 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -306,6 +324,9 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
