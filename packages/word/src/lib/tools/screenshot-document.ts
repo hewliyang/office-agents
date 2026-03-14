@@ -1,4 +1,4 @@
-import { toBase64 } from "@office-agents/core";
+import { loadPdfDocument, toBase64 } from "@office-agents/core";
 import { Type } from "@sinclair/typebox";
 import { defineTool, toolError, toolImage, toolText } from "./types";
 
@@ -110,17 +110,7 @@ export const screenshotDocumentTool = defineTool({
 
     try {
       const pdfData = await getDocumentAsPdf();
-
-      // Render PDF pages directly using pdfjs-dist
-      await import("pdfjs-dist/build/pdf.worker.mjs");
-      const pdfjsLib = await import("pdfjs-dist");
-
-      const pdfDoc = await pdfjsLib.getDocument({
-        data: pdfData.slice(),
-        useWorkerFetch: false,
-        isEvalSupported: false,
-        useSystemFonts: true,
-      }).promise;
+      const pdfDoc = await loadPdfDocument(pdfData);
 
       const pagesSpec = params.pages || "1";
       const selectedPages = parsePageRanges(pagesSpec, pdfDoc.numPages);

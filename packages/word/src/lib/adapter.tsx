@@ -1,6 +1,7 @@
 import type { AppAdapter } from "@office-agents/core";
 import { getOrCreateDocumentId } from "@office-agents/core";
 import { SelectionIndicator } from "./components/selection-indicator";
+import { TrackChangesIndicator } from "./components/track-changes-indicator";
 import wordApiFullDts from "./docs/word-officejs-api.d.ts?raw";
 import wordApiOnlineDts from "./docs/word-officejs-api-online.d.ts?raw";
 import { buildWordSystemPrompt } from "./system-prompt";
@@ -9,11 +10,14 @@ import { getCustomCommands } from "./vfs/custom-commands";
 
 /* global Word */
 
+const TRACKING_MODE_CHANGED_EVENT = "word-tracking-mode-maybe-changed";
+
 export function createWordAdapter(): AppAdapter {
   return {
     tools: WORD_TOOLS,
     customCommands: getCustomCommands,
-    hasImageSearch: false,
+    hasImageSearch: true,
+    showFollowModeToggle: false,
     staticFiles: {
       "/home/user/docs/word-officejs-api-online.d.ts": wordApiOnlineDts,
       "/home/user/docs/word-officejs-api.d.ts": wordApiFullDts,
@@ -30,6 +34,7 @@ export function createWordAdapter(): AppAdapter {
     },
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to create or edit your document",
+    HeaderExtras: TrackChangesIndicator,
     SelectionIndicator,
     buildSystemPrompt: buildWordSystemPrompt,
 
@@ -44,6 +49,10 @@ export function createWordAdapter(): AppAdapter {
       } catch {
         return null;
       }
+    },
+
+    onToolResult: () => {
+      window.dispatchEvent(new Event(TRACKING_MODE_CHANGED_EVENT));
     },
   };
 }

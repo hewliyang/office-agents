@@ -31,7 +31,9 @@ export interface AppAdapter {
   staticFiles?: Record<string, string>;
   customCommands?: () => CustomCommand[];
   hasImageSearch?: boolean;
+  showFollowModeToggle?: boolean;
   ToolExtras?: ComponentType<ToolExtrasProps>;
   Link?: ComponentType<LinkProps>;
+  HeaderExtras?: ComponentType;
   SelectionIndicator?: ComponentType;
 }

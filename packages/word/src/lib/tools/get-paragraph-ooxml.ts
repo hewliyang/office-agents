@@ -12,15 +12,15 @@ function extractFromPackage(ooxmlPackage: string): {
 } {
   const doc = new DOMParser().parseFromString(ooxmlPackage, "text/xml");
 
-  // --- Extract <w:p> elements from <w:body> ---
+  // --- Extract all <w:p> descendants from <w:body> ---
   const body = doc.getElementsByTagNameNS(W_NS, "body")[0];
   const paragraphs: string[] = [];
   if (body) {
-    for (const child of Array.from(body.children)) {
-      if (child.localName === "p") {
-        cleanElement(child);
-        paragraphs.push(new XMLSerializer().serializeToString(child));
-      }
+    for (const paragraph of Array.from(
+      body.getElementsByTagNameNS(W_NS, "p"),
+    )) {
+      cleanElement(paragraph);
+      paragraphs.push(new XMLSerializer().serializeToString(paragraph));
     }
   }
   const paragraphXml = paragraphs.join("\n");

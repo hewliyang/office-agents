@@ -1,5 +1,6 @@
 import type { Command, CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
+import { loadPdfDocument } from "../pdf";
 import { loadSavedConfig } from "../provider-config";
 import { loadWebConfig } from "../web/config";
 import { fetchWeb } from "../web/fetch";
@@ -113,15 +114,7 @@ const pdfToText: CustomCommand = {
 
       try {
         const data = await resolveVfsPath(ctx, filePath);
-        await import("pdfjs-dist/build/pdf.worker.mjs");
-        const pdfjsLib = await import("pdfjs-dist");
-
-        const doc = await pdfjsLib.getDocument({
-          data: data.slice(),
-          useWorkerFetch: false,
-          isEvalSupported: false,
-          useSystemFonts: true,
-        }).promise;
+        const doc = await loadPdfDocument(data);
         const pages: string[] = [];
 
         for (let i = 1; i <= doc.numPages; i++) {
@@ -179,15 +172,7 @@ const pdfToImages: CustomCommand = {
 
       try {
         const data = await resolveVfsPath(ctx, filePath);
-        await import("pdfjs-dist/build/pdf.worker.mjs");
-        const pdfjsLib = await import("pdfjs-dist");
-
-        const doc = await pdfjsLib.getDocument({
-          data: data.slice(),
-          useWorkerFetch: false,
-          isEvalSupported: false,
-          useSystemFonts: true,
-        }).promise;
+        const doc = await loadPdfDocument(data);
 
         const selectedPages = pagesArg
           ? parsePageRanges(pagesArg.split("=")[1], doc.numPages)
