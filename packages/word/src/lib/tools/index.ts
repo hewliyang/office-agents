@@ -2,7 +2,7 @@ import { bashTool, readTool } from "@office-agents/core";
 import { executeOfficeJsTool } from "./execute-office-js";
 import { getDocumentStructureTool } from "./get-document-structure";
 import { getDocumentTextTool } from "./get-document-text";
-import { getParagraphOoxmlTool } from "./get-paragraph-ooxml";
+import { getOoxmlTool } from "./get-ooxml";
 import { screenshotDocumentTool } from "./screenshot-document";
 
 export const WORD_TOOLS = [
@@ -13,7 +13,7 @@ export const WORD_TOOLS = [
   screenshotDocumentTool,
   getDocumentTextTool,
   getDocumentStructureTool,
-  getParagraphOoxmlTool,
+  getOoxmlTool,
   // Word write tools
   executeOfficeJsTool,
 ];
@@ -24,7 +24,7 @@ export {
   executeOfficeJsTool,
   getDocumentStructureTool,
   getDocumentTextTool,
-  getParagraphOoxmlTool,
+  getOoxmlTool,
   screenshotDocumentTool,
 };
 

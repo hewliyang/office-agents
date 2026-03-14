@@ -74,7 +74,6 @@ async function getDocumentMetadata(): Promise<object> {
     const tables = body.tables;
     const contentControls = body.contentControls;
     const sections = context.document.sections;
-
     body.load("text");
     tables.load("items");
     contentControls.load("items");
@@ -212,6 +211,33 @@ async function getDocumentMetadata(): Promise<object> {
       }
     }
 
+    // Build selection info
+    let selectionInfo: {
+      hasSelection: boolean;
+      selectedText?: string;
+      selectedStyle?: string;
+    } = { hasSelection: false };
+    try {
+      const selection = context.document.getSelection();
+      selection.load("text,style");
+      await context.sync();
+      const selectedText = selection.text?.trim() ?? "";
+      if (selectedText.length > 0) {
+        selectionInfo = {
+          hasSelection: true,
+          selectedText:
+            selectedText.length > 500
+              ? `${selectedText.substring(0, 500)}…`
+              : selectedText,
+        };
+        if (selection.style) {
+          selectionInfo.selectedStyle = selection.style;
+        }
+      }
+    } catch {
+      // selection API may fail in some contexts
+    }
+
     return {
       sectionCount: sections.items.length,
       tableCount: tables.items.length,
@@ -222,6 +248,7 @@ async function getDocumentMetadata(): Promise<object> {
       styleInfo,
       runFormattingSample,
       hasRunLevelOverrides,
+      selection: selectionInfo,
     };
   });
 }

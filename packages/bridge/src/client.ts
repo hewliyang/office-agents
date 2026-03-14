@@ -5,6 +5,12 @@ import {
   type BridgeSessionSnapshot,
   type BridgeToolDefinition,
   type BridgeToolExecutionResult,
+  type BridgeVfsDeleteParams,
+  type BridgeVfsEntry,
+  type BridgeVfsListParams,
+  type BridgeVfsReadParams,
+  type BridgeVfsReadResult,
+  type BridgeVfsWriteParams,
   type BridgeWireMessage,
   createBridgeId,
   extractToolError,
@@ -14,6 +20,7 @@ import {
   normalizeBridgeUrl,
   serializeForJson,
   toBridgeError,
+  uint8ArrayToBase64,
 } from "./protocol.js";
 
 declare const Office: any;
@@ -46,9 +53,18 @@ interface BridgeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
 }
 
+interface BridgeVfsAdapter {
+  snapshot: () => Promise<{ path: string; data: Uint8Array }[]>;
+  readFile: (path: string) => Promise<string>;
+  readFileBuffer: (path: string) => Promise<Uint8Array>;
+  writeFile: (path: string, content: string | Uint8Array) => Promise<void>;
+  deleteFile: (path: string) => Promise<void>;
+}
+
 export interface OfficeBridgeClientOptions {
   app: string;
   adapter: BridgeAdapter;
+  vfs?: BridgeVfsAdapter;
   enabled?: boolean;
   serverUrl?: string;
   reconnectBaseMs?: number;
@@ -283,6 +299,119 @@ export function startOfficeBridge(
     return executionResult;
   };
 
+  const decodeBase64 = (dataBase64: string): Uint8Array => {
+    const binary = atob(dataBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  };
+
+  const requireVfs = (): BridgeVfsAdapter => {
+    if (!options.vfs) {
+      throw new Error("Bridge VFS adapter is not configured for this app");
+    }
+    return options.vfs;
+  };
+
+  const listVfs = async (params: BridgeVfsListParams | undefined) => {
+    const files = await requireVfs().snapshot();
+    const prefix = params?.prefix?.trim();
+    const entries: BridgeVfsEntry[] = files
+      .filter((file) => !prefix || file.path.startsWith(prefix))
+      .map((file) => ({ path: file.path, byteLength: file.data.byteLength }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+    sendEvent("vfs_listed", {
+      prefix: prefix ?? null,
+      count: entries.length,
+    });
+    return entries;
+  };
+
+  const readVfs = async (
+    params: BridgeVfsReadParams,
+  ): Promise<BridgeVfsReadResult> => {
+    const vfs = requireVfs();
+    if (!params?.path) {
+      throw new Error("Missing path for vfs_read");
+    }
+
+    const encoding = params.encoding === "text" ? "text" : "base64";
+    if (encoding === "text") {
+      const text = await vfs.readFile(params.path);
+      const bytes = new TextEncoder().encode(text);
+      const result: BridgeVfsReadResult = {
+        path: params.path,
+        encoding,
+        byteLength: bytes.byteLength,
+        text,
+      };
+      sendEvent("vfs_read", {
+        path: params.path,
+        encoding,
+        byteLength: result.byteLength,
+      });
+      return result;
+    }
+
+    const data = await vfs.readFileBuffer(params.path);
+    const result: BridgeVfsReadResult = {
+      path: params.path,
+      encoding,
+      byteLength: data.byteLength,
+      dataBase64: uint8ArrayToBase64(data),
+    };
+    sendEvent("vfs_read", {
+      path: params.path,
+      encoding,
+      byteLength: result.byteLength,
+    });
+    return result;
+  };
+
+  const writeVfs = async (params: BridgeVfsWriteParams) => {
+    const vfs = requireVfs();
+    if (!params?.path) {
+      throw new Error("Missing path for vfs_write");
+    }
+    if (
+      typeof params.text !== "string" &&
+      typeof params.dataBase64 !== "string"
+    ) {
+      throw new Error("vfs_write requires either text or dataBase64");
+    }
+
+    const content =
+      typeof params.text === "string"
+        ? params.text
+        : decodeBase64(params.dataBase64 as string);
+    await vfs.writeFile(params.path, content);
+    sendEvent("vfs_written", {
+      path: params.path,
+      byteLength:
+        typeof content === "string"
+          ? new TextEncoder().encode(content).byteLength
+          : content.byteLength,
+    });
+    scheduleMicrotask(() => {
+      refresh().catch(() => undefined);
+    });
+    return { success: true, path: params.path };
+  };
+
+  const deleteVfs = async (params: BridgeVfsDeleteParams) => {
+    if (!params?.path) {
+      throw new Error("Missing path for vfs_delete");
+    }
+    await requireVfs().deleteFile(params.path);
+    sendEvent("vfs_deleted", { path: params.path });
+    scheduleMicrotask(() => {
+      refresh().catch(() => undefined);
+    });
+    return { success: true, path: params.path };
+  };
+
   const executeUnsafeOfficeJs = async (params: {
     code?: string;
     explanation?: string;
@@ -415,6 +544,26 @@ export function startOfficeBridge(
             );
             break;
           }
+          case "vfs_list":
+            result = await listVfs(
+              (message.params ?? {}) as BridgeVfsListParams,
+            );
+            break;
+          case "vfs_read":
+            result = await readVfs(
+              (message.params ?? {}) as BridgeVfsReadParams,
+            );
+            break;
+          case "vfs_write":
+            result = await writeVfs(
+              (message.params ?? {}) as BridgeVfsWriteParams,
+            );
+            break;
+          case "vfs_delete":
+            result = await deleteVfs(
+              (message.params ?? {}) as BridgeVfsDeleteParams,
+            );
+            break;
           default:
             throw new Error(`Unsupported bridge method: ${message.method}`);
         }

@@ -64,7 +64,11 @@ export type BridgeInvokeMethod =
   | "get_session_snapshot"
   | "refresh_session"
   | "execute_tool"
-  | "execute_unsafe_office_js";
+  | "execute_unsafe_office_js"
+  | "vfs_list"
+  | "vfs_read"
+  | "vfs_write"
+  | "vfs_delete";
 
 export interface BridgeInvokeMessage {
   type: "invoke";
@@ -128,6 +132,46 @@ export interface BridgeUnsafeOfficeJsResult {
   mode: "unsafe";
   app: string;
   result: unknown;
+}
+
+export interface BridgeVfsEntry {
+  path: string;
+  byteLength: number;
+}
+
+export interface BridgeVfsListParams {
+  prefix?: string;
+}
+
+export interface BridgeVfsReadParams {
+  path: string;
+  encoding?: "text" | "base64";
+}
+
+export interface BridgeVfsReadResult {
+  path: string;
+  encoding: "text" | "base64";
+  byteLength: number;
+  text?: string;
+  dataBase64?: string;
+}
+
+export interface BridgeVfsWriteParams {
+  path: string;
+  text?: string;
+  dataBase64?: string;
+}
+
+export interface BridgeVfsDeleteParams {
+  path: string;
+}
+
+export function uint8ArrayToBase64(data: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < data.length; i++) {
+    binary += String.fromCharCode(data[i]);
+  }
+  return btoa(binary);
 }
 
 interface ToolTextPart {

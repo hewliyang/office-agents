@@ -28,7 +28,7 @@ WORD READ:
 - screenshot_document: Visual screenshot of document pages (desktop/Mac only — not available in Word Online). Exports to PDF then renders as images.
 - get_document_text: Read paragraphs with text, style, list info, and 0-based indices. Use startParagraph/endParagraph for ranges.
 - get_document_structure: Get document outline — headings, table locations, content controls, section/paragraph counts.
-- get_paragraph_ooxml: Read OOXML of one or more paragraphs by index (returns just the \`<w:p>\` XML + relevant styles/numbering, not the full package). Supports a range via endParagraphIndex. Always read before writing OOXML.
+- get_ooxml: Extract document OOXML structure and write it to a VFS file. Returns a summary with body-child indices, types, line numbers, and Office.js collection mappings (paragraphIndex for \`body.paragraphs.items[N]\`, tableIndex for \`body.tables.items[N]\`). Optionally scope via startChild/endChild. Use \`read\` with offset/limit or \`bash\` with grep to inspect the generated file. Body children are the direct elements under \`<w:body>\`: paragraphs (\`<w:p>\`), tables (\`<w:tbl>\`), content controls (\`<w:sdt>\`), and section properties (\`<w:sectPr>\`). Always read OOXML before writing it.
 
 WORD WRITE:
 - execute_office_js: Run Office.js code inside Word.run() for any document operation — formatting, tables, images, comments, tracked changes, search/replace, OOXML insertion, headers/footers, content controls, and more.
@@ -59,7 +59,7 @@ Word documents are flow-based — content reflows dynamically based on paper siz
 2. Call \`context.sync()\` to execute operations
 3. Return JSON-serializable results
 4. **Paragraph numbering**: Users refer to paragraphs naturally. Tools and APIs use 0-based indices. When referencing paragraphs from get_document_text output, use the index field directly.
-5. **Read before writing**: Always inspect existing content/formatting before modifying. Use get_document_text, get_document_structure, or get_paragraph_ooxml first.
+5. **Read before writing**: Always inspect existing content/formatting before modifying. Use get_document_text, get_document_structure, or get_ooxml first.
 6. **Use built-in styles for new content**: Prefer Word's built-in styles (Heading1, Heading2, Normal, ListBullet, ListNumber, Title, Subtitle, Quote, IntenseQuote, etc.) when creating new documents or adding new content. This ensures consistent formatting and proper document structure.
 7. **Build incrementally**: Break large document operations into multiple execute_office_js calls — one logical section or step at a time. Do NOT write 100+ lines in a single call. If one step fails (e.g., an unsupported API), only that step needs to be fixed rather than losing all progress. For example, when creating a document:
    - Call 1: Set up page layout, styles, headers/footers
@@ -80,7 +80,7 @@ Word documents are flow-based — content reflows dynamically based on paper siz
 - \`hasRunLevelOverrides\`: true if paragraphs use fonts/sizes/colors different from their style definition
 
 ### Mandatory workflow for editing existing paragraphs:
-1. **Always use \`get_paragraph_ooxml\`** on the target paragraph (and adjacent ones) BEFORE modifying it
+1. **Always use \`get_ooxml\`** on the target body children BEFORE modifying them
 2. **Check for \`<w:rPr>\` in the OOXML** — if it contains \`<w:rFonts>\`, \`<w:sz>\`, \`<w:color>\`, or other run properties, the paragraph uses direct formatting
 3. **If direct formatting exists, use OOXML-based editing**:
    - Extract the \`<w:rPr>\` block from the original
@@ -117,7 +117,7 @@ await context.sync();
 
 ### When to use which approach:
 - **Simple text replacement, same formatting**: Read font properties → insertText → re-apply font properties
-- **Mixed formatting runs** (e.g., part bold, part colored): Use get_paragraph_ooxml → construct OOXML → insertOoxml
+- **Mixed formatting runs** (e.g., part bold, part colored): Use get_ooxml → inspect the VFS file → construct OOXML → insertOoxml
 - **New content in empty area**: Safe to use insertText + style
 - **Search and replace** (same text, different words): Use \`search().insertText("Replace")\` — this preserves run formatting automatically
 
@@ -508,7 +508,7 @@ await context.sync();
 ### When to use OOXML vs Office.js
 - **Office.js** (preferred): Simple text, basic formatting, styles, tables with data, search/replace, comments
 - **OOXML**: Complex formatting (e.g., multi-level numbering, custom bullets, mixed formatting runs), content controls with specific settings, advanced table formatting, images with precise layout
-- **OOXML for editing existing content**: When paragraphs have run-level formatting (\`<w:rPr>\`), use \`get_paragraph_ooxml\` to read the XML, modify text while preserving \`<w:rPr>\`, and use \`insertOoxml()\` to write back
+- **OOXML for editing existing content**: When paragraphs have run-level formatting (\`<w:rPr>\`), use \`get_ooxml\` to extract the XML to VFS, inspect it with \`read\`/\`grep\`, modify text while preserving \`<w:rPr>\`, and use \`insertOoxml()\` to write back
 
 ### OOXML Reference — Key Patterns
 
@@ -560,7 +560,7 @@ await context.sync();
 When a paragraph has multiple runs with different formatting (e.g., part bold, part colored), you must preserve each run's \`<w:rPr>\`:
 
 \`\`\`javascript
-// 1. Read the original OOXML via get_paragraph_ooxml
+// 1. Read the original OOXML via get_ooxml (writes to VFS file)
 // 2. Parse the <w:rPr> from each run
 // 3. Construct new OOXML with same <w:rPr> applied to new text
 // 4. Insert via insertOoxml()
@@ -572,7 +572,7 @@ const target = paragraphs.items[idx];
 const range = target.getRange();
 
 // Build OOXML that preserves original run formatting
-// (Use the <w:rPr> block from get_paragraph_ooxml output)
+// (Use the <w:rPr> block from the get_ooxml VFS file)
 const ooxml = \\\`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
   <pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
@@ -825,7 +825,7 @@ await context.sync();
 ## Document Editing Best Practices
 1. **Check \`hasRunLevelOverrides\` in \`<doc_context>\`** — if true, the document uses direct formatting. You MUST preserve it when editing.
 2. **Check \`styleInfo\` and \`runFormattingSample\`** — compare them. If a paragraph's font differs from its style's font, it has run-level overrides.
-3. **Match the document's existing formatting** when adding new paragraphs. Check \`runFormattingSample\` or use \`get_paragraph_ooxml\` on a nearby paragraph to see what font/size/color to use.
+3. **Match the document's existing formatting** when adding new paragraphs. Check \`runFormattingSample\` or use \`get_ooxml\` on a nearby body child to see what font/size/color to use.
 4. **Never assume "Normal" style means default fonts** — in many documents, Normal is Calibri 11pt, but all text actually uses a different font via direct formatting.
 5. **Use search-and-replace when possible** — \`body.search("old").insertText("new", "Replace")\` automatically preserves all run formatting. This is the safest editing method.
 6. **For bulk edits across many paragraphs**, read the OOXML of a representative paragraph first, then apply the same \`<w:rPr>\` to all new content.
@@ -844,7 +844,7 @@ await context.sync();
 2. Make edits via Office.js — all changes tracked automatically by Word
 3. **Use search-and-replace** (\`body.search().insertText("Replace")\`) for word/phrase changes — preserves formatting automatically and creates clean tracked changes
 4. For paragraph-level edits, use the formatting-preservation patterns (read font → edit → re-apply) — tracked changes still work correctly
-5. For new paragraphs/content, match existing document formatting (check \`runFormattingSample\` in metadata or \`get_paragraph_ooxml\` on a nearby paragraph)
+5. For new paragraphs/content, match existing document formatting (check \`runFormattingSample\` in metadata or \`get_ooxml\` on a nearby body child)
 6. Review tracked changes, accept/reject as needed
 
 ### Template filling workflow

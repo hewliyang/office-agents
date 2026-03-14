@@ -18,6 +18,12 @@ export {
   type BridgeStoredEvent,
   type BridgeToolDefinition,
   type BridgeToolExecutionResult,
+  type BridgeVfsDeleteParams,
+  type BridgeVfsEntry,
+  type BridgeVfsListParams,
+  type BridgeVfsReadParams,
+  type BridgeVfsReadResult,
+  type BridgeVfsWriteParams,
   type BridgeWelcomeMessage,
   type BridgeWireMessage,
   createBridgeId,
@@ -34,4 +40,5 @@ export {
   normalizeBridgeUrl,
   serializeForJson,
   toBridgeError,
+  uint8ArrayToBase64,
 } from "./protocol.js";

@@ -75,6 +75,7 @@ App-specific VFS commands are registered via `setCustomCommands()` from SDK. Exc
 ```bash
 pnpm install             # Install all dependencies
 pnpm bridge:serve        # Start the local Office RPC bridge server (https://localhost:4017)
+pnpm bridge:stop         # Stop the local Office RPC bridge server
 pnpm exec office-bridge list  # List live Office bridge sessions
 pnpm dev-server:excel    # Start Excel dev server (https://localhost:3000)
 pnpm dev-server:ppt      # Start PowerPoint dev server (https://localhost:3001)
@@ -96,15 +97,24 @@ During development, the Office taskpane auto-connects to the local bridge client
 
 ```bash
 pnpm bridge:serve
+pnpm bridge:stop
 pnpm exec office-bridge list
 pnpm exec office-bridge inspect word
 pnpm exec office-bridge metadata word
 pnpm exec office-bridge tool word get_document_text
 pnpm exec office-bridge exec word --code "return { href: window.location.href, title: document.title }"  # unsafe direct eval by default
 pnpm exec office-bridge exec word --sandbox --code "const body = context.document.body; body.load('text'); await context.sync(); return body.text;"
+pnpm exec office-bridge screenshot word --pages 1 --out page1.png
+pnpm exec office-bridge vfs ls word /home/user
+pnpm exec office-bridge vfs pull word /home/user/uploads/report.docx ./report.docx
+pnpm exec office-bridge vfs push word ./local.txt /home/user/uploads/local.txt
 ```
 
 `office-bridge exec` runs code with full taskpane/runtime access by default during development. Use `--sandbox` to route through the existing app escape-hatch tool instead.
+
+Use `office-bridge screenshot ... --out file.png` for a simple screenshot-to-local-file workflow, or `office-bridge tool ... --out file.png` for image-returning tool calls. The CLI strips image base64 from printed JSON output to avoid blowing up model context windows.
+
+`pnpm bridge:serve` reuses an already-running healthy bridge server on port `4017` instead of failing with `EADDRINUSE`.
 
 Bridge defaults:
 

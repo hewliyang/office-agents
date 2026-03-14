@@ -55,36 +55,16 @@ function getDocumentAsPdf(): Promise<Uint8Array> {
   });
 }
 
-function parsePageRanges(spec: string, maxPages: number): Set<number> {
-  const pages = new Set<number>();
-  for (const part of spec.split(",")) {
-    const trimmed = part.trim();
-    if (trimmed.includes("-")) {
-      const [startStr, endStr] = trimmed.split("-");
-      const start = Math.max(1, Number.parseInt(startStr, 10));
-      const end = Math.min(maxPages, Number.parseInt(endStr, 10));
-      if (!Number.isNaN(start) && !Number.isNaN(end)) {
-        for (let i = start; i <= end; i++) pages.add(i);
-      }
-    } else {
-      const num = Number.parseInt(trimmed, 10);
-      if (!Number.isNaN(num) && num >= 1 && num <= maxPages) pages.add(num);
-    }
-  }
-  return pages;
-}
-
 export const screenshotDocumentTool = defineTool({
   name: "screenshot_document",
   label: "Screenshot Document",
   description:
-    "Take a visual screenshot of document pages by exporting to PDF and rendering as images. " +
+    "Take a visual screenshot of a single document page by exporting to PDF and rendering as an image. " +
     "Desktop/Mac only — not supported in Word on the web.",
   parameters: Type.Object({
-    pages: Type.Optional(
-      Type.String({
-        description:
-          'Page range to render, e.g. "1-3" or "1,3,5". Default: "1"',
+    page: Type.Optional(
+      Type.Number({
+        description: "1-based page number to render. Default: 1",
       }),
     ),
     explanation: Type.Optional(
@@ -95,7 +75,6 @@ export const screenshotDocumentTool = defineTool({
     ),
   }),
   execute: async (_toolCallId, params) => {
-    // Check platform
     const platform = Office.context.platform;
     if (platform === Office.PlatformType.OfficeOnline) {
       return toolText(
@@ -112,16 +91,12 @@ export const screenshotDocumentTool = defineTool({
       const pdfData = await getDocumentAsPdf();
       const pdfDoc = await loadPdfDocument(pdfData);
 
-      const pagesSpec = params.pages || "1";
-      const selectedPages = parsePageRanges(pagesSpec, pdfDoc.numPages);
-      if (selectedPages.size === 0) {
-        return toolError(
-          `No valid pages in range "${pagesSpec}" (document has ${pdfDoc.numPages} pages)`,
-        );
+      const pageNum = params.page ?? 1;
+      if (pageNum < 1 || pageNum > pdfDoc.numPages) {
+        pdfDoc.destroy();
+        return toolError(`Page ${pageNum} out of range (1-${pdfDoc.numPages})`);
       }
 
-      // Render first selected page
-      const pageNum = [...selectedPages].sort((a, b) => a - b)[0];
       const page = await pdfDoc.getPage(pageNum);
       const scale = 2;
       const viewport = page.getViewport({ scale });
@@ -141,13 +116,11 @@ export const screenshotDocumentTool = defineTool({
         }, "image/png");
       });
 
-      // Cleanup
       canvas.width = 0;
       canvas.height = 0;
       pdfDoc.destroy();
 
-      const base64 = toBase64(pngData);
-      return await toolImage(base64, "image/png");
+      return await toolImage(toBase64(pngData), "image/png");
     } catch (error) {
       const message =
         error instanceof Error

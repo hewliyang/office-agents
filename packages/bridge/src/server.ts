@@ -11,6 +11,10 @@ import {
   type BridgeResponseMessage,
   type BridgeSessionSnapshot,
   type BridgeStoredEvent,
+  type BridgeVfsDeleteParams,
+  type BridgeVfsListParams,
+  type BridgeVfsReadParams,
+  type BridgeVfsWriteParams,
   type BridgeWireMessage,
   createBridgeId,
   DEFAULT_BRIDGE_HOST,
@@ -212,6 +216,19 @@ export async function createBridgeServer(
           return;
         }
 
+        if (req.method === "POST" && pathname === "/shutdown") {
+          jsonResponse(res, 200, {
+            ok: true,
+            message: "Bridge server shutting down",
+          });
+          setTimeout(() => {
+            handle.close().catch((error) => {
+              logger.error(`[bridge] failed to shut down: ${error}`);
+            });
+          }, 0);
+          return;
+        }
+
         if (req.method === "GET" && pathname === "/sessions") {
           const payload = [...sessions.values()].map(publicSessionRecord);
           jsonResponse(res, 200, { ok: true, sessions: payload });
@@ -290,6 +307,78 @@ export async function createBridgeServer(
             metadata: snapshot.documentMetadata ?? null,
             snapshot,
           });
+          return;
+        }
+
+        const vfsListMatch = routeMatch(
+          pathname,
+          /^\/sessions\/([^/]+)\/vfs\/list$/,
+        );
+        if (req.method === "POST" && vfsListMatch) {
+          const sessionId = decodeURIComponent(vfsListMatch[1]);
+          const body = (await readJsonBody(req)) as
+            | BridgeVfsListParams
+            | undefined;
+          const result = await invokeSessionInternal({
+            sessionId,
+            method: "vfs_list",
+            params: body ?? {},
+          });
+          jsonResponse(res, 200, { ok: true, result });
+          return;
+        }
+
+        const vfsReadMatch = routeMatch(
+          pathname,
+          /^\/sessions\/([^/]+)\/vfs\/read$/,
+        );
+        if (req.method === "POST" && vfsReadMatch) {
+          const sessionId = decodeURIComponent(vfsReadMatch[1]);
+          const body = (await readJsonBody(req)) as
+            | BridgeVfsReadParams
+            | undefined;
+          const result = await invokeSessionInternal({
+            sessionId,
+            method: "vfs_read",
+            params: body ?? {},
+          });
+          jsonResponse(res, 200, { ok: true, result });
+          return;
+        }
+
+        const vfsWriteMatch = routeMatch(
+          pathname,
+          /^\/sessions\/([^/]+)\/vfs\/write$/,
+        );
+        if (req.method === "POST" && vfsWriteMatch) {
+          const sessionId = decodeURIComponent(vfsWriteMatch[1]);
+          const body = (await readJsonBody(req)) as
+            | BridgeVfsWriteParams
+            | undefined;
+          const result = await invokeSessionInternal({
+            sessionId,
+            method: "vfs_write",
+            params: body ?? {},
+          });
+          jsonResponse(res, 200, { ok: true, result });
+          return;
+        }
+
+        const vfsDeleteMatch = routeMatch(
+          pathname,
+          /^\/sessions\/([^/]+)\/vfs\/delete$/,
+        );
+        if (req.method === "POST" && vfsDeleteMatch) {
+          const sessionId = decodeURIComponent(vfsDeleteMatch[1]);
+          const body = (await readJsonBody(req)) as
+            | BridgeVfsDeleteParams
+            | undefined;
+          const result = await invokeSessionInternal({
+            sessionId,
+            method: "vfs_delete",
+            params: body ?? {},
+          });
+          jsonResponse(res, 200, { ok: true, result });
           return;
         }
 
