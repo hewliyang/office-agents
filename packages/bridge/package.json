@@ -17,7 +17,7 @@
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
     "cli": "pnpm build && node dist/cli.js",
     "start": "pnpm build && node dist/cli.js serve",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@office-agents/core": "workspace:*",

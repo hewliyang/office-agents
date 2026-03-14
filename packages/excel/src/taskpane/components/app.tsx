@@ -24,22 +24,24 @@ const App: FC<AppProps> = () => {
     let stopped = false;
     let stopBridge: (() => void) | undefined;
 
-    void import("@office-agents/bridge/client").then(({ startOfficeBridge }) => {
-      if (stopped) return;
+    void import("@office-agents/bridge/client").then(
+      ({ startOfficeBridge }) => {
+        if (stopped) return;
 
-      const bridge = startOfficeBridge({
-        app: "excel",
-        adapter,
-        vfs: {
-          snapshot: snapshotVfs,
-          readFile,
-          readFileBuffer,
-          writeFile,
-          deleteFile,
-        },
-      });
-      stopBridge = () => bridge.stop();
-    });
+        const bridge = startOfficeBridge({
+          app: "excel",
+          adapter,
+          vfs: {
+            snapshot: snapshotVfs,
+            readFile,
+            readFileBuffer,
+            writeFile,
+            deleteFile,
+          },
+        });
+        stopBridge = () => bridge.stop();
+      },
+    );
 
     return () => {
       stopped = true;
