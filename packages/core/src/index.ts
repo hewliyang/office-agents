@@ -60,6 +60,7 @@ export {
   listSessions,
   listUploads,
   loadOAuthCredentials,
+  loadPdfDocument,
   loadSavedConfig,
   loadVfsFiles,
   // Web

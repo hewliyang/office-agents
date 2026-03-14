@@ -7,6 +7,7 @@ import {
   truncateHead,
 } from "../truncate";
 import {
+  detectImageMimeType,
   fileExists,
   getFileType,
   listUploads,
@@ -70,8 +71,9 @@ export const readTool = defineTool({
 
       if (isImage) {
         const data = await readFileBuffer(fullPath);
+        const actualMimeType = detectImageMimeType(data, mimeType);
         const base64 = toBase64(data);
-        const resized = await resizeImage(base64, mimeType);
+        const resized = await resizeImage(base64, actualMimeType);
 
         return {
           content: [

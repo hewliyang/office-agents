@@ -10,18 +10,14 @@ import {
 } from "@office-agents/core";
 import type { FC } from "react";
 import { useEffect, useMemo } from "react";
-import { createExcelAdapter } from "../../lib/adapter";
+import { createWordAdapter } from "../../lib/adapter";
 
-interface AppProps {
-  title: string;
-}
-
-const App: FC<AppProps> = () => {
-  const adapter = useMemo(() => createExcelAdapter(), []);
+const App: FC = () => {
+  const adapter = useMemo(() => createWordAdapter(), []);
 
   useEffect(() => {
     const bridge = startOfficeBridge({
-      app: "excel",
+      app: "word",
       adapter,
       vfs: {
         snapshot: snapshotVfs,

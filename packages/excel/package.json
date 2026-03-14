@@ -18,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@office-agents/bridge": "workspace:*",
     "@office-agents/core": "workspace:*",
     "lucide-react": "^0.563.0",
     "@mariozechner/pi-agent-core": "catalog:",

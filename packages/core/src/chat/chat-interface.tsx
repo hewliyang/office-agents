@@ -298,8 +298,10 @@ function ChatHeader({
   theme: Theme;
   onThemeToggle: () => void;
 }) {
-  const { clearMessages, state, toggleFollowMode } = useChat();
+  const { adapter, clearMessages, state, toggleFollowMode } = useChat();
   const followMode = state.providerConfig?.followMode ?? true;
+  const HeaderExtras = adapter.HeaderExtras;
+  const showFollowModeToggle = adapter.showFollowModeToggle ?? true;
 
   return (
     <div className="border-b border-(--chat-border) bg-(--chat-bg)">
@@ -322,7 +324,8 @@ function ChatHeader({
           </TabButton>
         </div>
         <div className="flex items-center">
-          {activeTab === "chat" && (
+          {activeTab === "chat" && HeaderExtras && <HeaderExtras />}
+          {activeTab === "chat" && showFollowModeToggle && (
             <button
               type="button"
               onClick={toggleFollowMode}

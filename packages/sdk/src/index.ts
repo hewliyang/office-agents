@@ -29,6 +29,7 @@ export {
   removeOAuthCredentials,
   saveOAuthCredentials,
 } from "./oauth";
+export { loadPdfDocument } from "./pdf";
 // Provider config
 export {
   API_TYPES,

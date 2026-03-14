@@ -1,12 +1,12 @@
 {
-  "name": "@office-agents/powerpoint",
-  "version": "0.0.2",
+  "name": "@office-agents/word",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "config": {
-    "app_to_debug": "powerpoint",
+    "app_to_debug": "word",
     "app_type_to_debug": "desktop",
-    "dev_server_port": 3001
+    "dev_server_port": 3002
   },
   "scripts": {
     "build": "vite build",
@@ -23,7 +23,6 @@
     "@office-agents/bridge": "workspace:*",
     "@office-agents/core": "workspace:*",
     "@sinclair/typebox": "^0.34.48",
-    "jszip": "^3.10.1",
     "just-bash": "^2.7.0",
     "lucide-react": "^0.563.0",
     "mammoth": "^1.11.0",
