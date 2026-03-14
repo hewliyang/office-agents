@@ -93,9 +93,6 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
-      '@office-agents/bridge':
-        specifier: workspace:*
-        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -127,6 +124,9 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -187,9 +187,6 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
-      '@office-agents/bridge':
-        specifier: workspace:*
-        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -224,6 +221,9 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -327,9 +327,6 @@ importers:
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
         version: 0.56.2(ws@8.19.0)(zod@3.25.76)
-      '@office-agents/bridge':
-        specifier: workspace:*
-        version: link:../bridge
       '@office-agents/core':
         specifier: workspace:*
         version: link:../core
@@ -361,6 +358,9 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
+      '@office-agents/bridge':
+        specifier: workspace:*
+        version: link:../bridge
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
