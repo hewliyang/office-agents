@@ -23,6 +23,7 @@ FILES & SHELL:
   - xlsx-to-csv <file> <outfile> [sheet] — Convert XLSX/XLS/ODS to CSV
   - web-search <query> [--max=N] [--json] — Search the web
   - web-fetch <url> <outfile> — Fetch a URL (HTML→Markdown, binary→raw file)
+  - image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.
 
 WORD READ:
 - screenshot_document: Visual screenshot of document pages (desktop/Mac only — not available in Word Online). Exports to PDF then renders as images.
