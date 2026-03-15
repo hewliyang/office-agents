@@ -13,6 +13,8 @@ export function sandboxedEval(
       console,
       Math,
       Date,
+      atob,
+      btoa,
       Function: undefined,
       Reflect: undefined,
       Proxy: undefined,

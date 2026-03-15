@@ -25,7 +25,8 @@ export const executeOfficeJsTool = defineTool({
         "Return JSON-serializable results. " +
         "readFile(path) returns Promise<string> and readFileBuffer(path) returns Promise<Uint8Array> " +
         "to read files from the virtual filesystem. " +
-        "writeFile(path, content) returns Promise<void> to write string or Uint8Array to the virtual filesystem.",
+        "writeFile(path, content) returns Promise<void> to write string or Uint8Array to the virtual filesystem. " +
+        "btoa(string) and atob(base64) are available for base64 encoding/decoding.",
     }),
     explanation: Type.Optional(
       Type.String({

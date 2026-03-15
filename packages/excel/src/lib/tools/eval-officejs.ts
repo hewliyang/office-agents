@@ -38,6 +38,7 @@ export const evalOfficeJsTool = defineTool({
         "JavaScript code to execute. Has access to `context` (Excel.RequestContext), " +
         "readFile(path) returns Promise<string>, readFileBuffer(path) returns Promise<Uint8Array>, " +
         "and writeFile(path, content) returns Promise<void> (content: string | Uint8Array) for VFS files. " +
+        "btoa(string) and atob(base64) are available for base64 encoding/decoding. " +
         "Must be valid async code. Return a value to get it as result. " +
         "Example: `const range = context.workbook.worksheets.getActiveWorksheet().getRange('A1'); range.load('values'); await context.sync(); return range.values;`",
     }),

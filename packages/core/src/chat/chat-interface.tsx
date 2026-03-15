@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  FolderOpen,
   MessageSquare,
   Moon,
   Plus,
@@ -23,6 +24,7 @@ import {
 import type { AppAdapter } from "./app-adapter";
 import { ChatProvider, useChat } from "./chat-context";
 import { ChatInput } from "./chat-input";
+import { FilesPanel } from "./files-panel";
 import { MessageList } from "./message-list";
 import { SettingsPanel } from "./settings-panel";
 import type { ChatTab } from "./types";
@@ -316,6 +318,13 @@ function ChatHeader({
             </TabButton>
           )}
           <TabButton
+            active={activeTab === "files"}
+            onClick={() => onTabChange("files")}
+          >
+            <FolderOpen size={12} />
+            Files
+          </TabButton>
+          <TabButton
             active={activeTab === "settings"}
             onClick={() => onTabChange("settings")}
           >
@@ -436,6 +445,8 @@ function ChatContent() {
           <ChatInput />
           <StatsBar />
         </>
+      ) : activeTab === "files" ? (
+        <FilesPanel />
       ) : (
         <SettingsPanel />
       )}

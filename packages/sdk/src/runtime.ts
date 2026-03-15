@@ -95,6 +95,7 @@ export interface RuntimeState {
   uploads: UploadedFile[];
   isUploading: boolean;
   skills: SkillMeta[];
+  vfsInvalidatedAt: number;
 }
 
 type StateListener = (state: RuntimeState) => void;
@@ -138,6 +139,7 @@ export class AgentRuntime {
       uploads: [],
       isUploading: false,
       skills: [],
+      vfsInvalidatedAt: 0,
     };
   }
 
@@ -159,6 +161,10 @@ export class AgentRuntime {
   private update(partial: Partial<RuntimeState>) {
     this.state = { ...this.state, ...partial };
     this.emit();
+  }
+
+  private bumpVfs() {
+    this.update({ vfsInvalidatedAt: Date.now() });
   }
 
   private updateMessages(
@@ -674,6 +680,7 @@ export class AgentRuntime {
       if (updated) {
         this.update({ currentSession: updated });
       }
+      this.bumpVfs();
     } catch (e) {
       console.error(e);
     }
@@ -757,6 +764,7 @@ export class AgentRuntime {
         const snapshot = await snapshotVfs();
         await saveVfsFiles(this.currentSessionId, snapshot);
       }
+      this.bumpVfs();
     } catch (err) {
       console.error("Failed to upload file:", err);
     } finally {
@@ -774,6 +782,7 @@ export class AgentRuntime {
         const snapshot = await snapshotVfs();
         await saveVfsFiles(this.currentSessionId, snapshot);
       }
+      this.bumpVfs();
     } catch (err) {
       console.error("Failed to delete file:", err);
       this.update({
