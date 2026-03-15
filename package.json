@@ -26,7 +26,8 @@
     "validate": "pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/excel exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.xml && pnpm --filter @office-agents/powerpoint exec office-addin-manifest validate manifest.prod.xml && pnpm --filter @office-agents/word exec office-addin-manifest validate manifest.xml",
     "release:excel": "node scripts/release.mjs excel",
     "release:ppt": "node scripts/release.mjs ppt",
-    "release:sdk": "node scripts/release.mjs sdk"
+    "release:sdk": "node scripts/release.mjs sdk",
+    "release:bridge": "node scripts/release.mjs bridge"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",

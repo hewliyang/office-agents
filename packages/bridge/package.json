@@ -1,9 +1,11 @@
 {
   "name": "@office-agents/bridge",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
+  "description": "Local HTTPS/WebSocket RPC bridge + CLI for developing and debugging Office Add-ins",
+  "license": "MIT",
   "main": "src/index.ts",
+  "types": "src/index.ts",
   "bin": {
     "office-bridge": "bin/office-bridge.js"
   },
@@ -13,14 +15,52 @@
     "./protocol": "./src/protocol.ts",
     "./server": "./src/server.ts"
   },
+  "publishConfig": {
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "bin": {
+      "office-bridge": "bin/office-bridge.js"
+    },
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "import": "./dist/client.js"
+      },
+      "./protocol": {
+        "types": "./dist/protocol.d.ts",
+        "import": "./dist/protocol.js"
+      },
+      "./server": {
+        "types": "./dist/server.d.ts",
+        "import": "./dist/server.js"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hewliyang/office-agents.git",
+    "directory": "packages/bridge"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts.map",
+    "bin",
+    "README.md"
+  ],
   "scripts": {
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
     "cli": "pnpm build && node dist/cli.js",
     "start": "pnpm build && node dist/cli.js serve",
+    "prepublishOnly": "pnpm build",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@office-agents/core": "workspace:*",
     "ws": "^8.18.3"
   }
 }

@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { request as httpsRequest } from "node:https";
 import path from "node:path";
 import process from "node:process";
+import { parseArgs } from "node:util";
+import {
+  type BridgeRequestOptions,
+  probeBridge,
+  requestJson,
+} from "./http-client.js";
 import {
   type BridgeInvokeMethod,
   type BridgeSessionSnapshot,
@@ -24,56 +29,71 @@ import {
   summarizeExecutionError,
 } from "./server.js";
 
-interface ParsedArgs {
-  command: string | undefined;
-  rest: string[];
-  flags: Map<string, string | boolean>;
+const OPTIONS = {
+  help: { type: "boolean" as const },
+  json: { type: "boolean" as const },
+  stdin: { type: "boolean" as const },
+  sandbox: { type: "boolean" as const },
+  url: { type: "string" as const },
+  host: { type: "string" as const },
+  port: { type: "string" as const },
+  timeout: { type: "string" as const },
+  input: { type: "string" as const },
+  file: { type: "string" as const },
+  code: { type: "string" as const },
+  explanation: { type: "string" as const },
+  out: { type: "string" as const },
+  limit: { type: "string" as const },
+  app: { type: "string" as const },
+  document: { type: "string" as const },
+  pages: { type: "string" as const },
+  "sheet-id": { type: "string" as const },
+  range: { type: "string" as const },
+  "slide-index": { type: "string" as const },
+  slide: { type: "string" as const },
+};
+
+interface Cli {
+  positionals: string[];
+  values: Record<string, string | boolean | undefined>;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
-  const flags = new Map<string, string | boolean>();
-  const positionals: string[] = [];
-
-  for (let i = 0; i < argv.length; i++) {
-    const current = argv[i];
-
-    if (current === "--") {
-      positionals.push(...argv.slice(i + 1));
-      break;
-    }
-
-    if (current.startsWith("--")) {
-      const eqIdx = current.indexOf("=");
-      if (eqIdx !== -1) {
-        flags.set(current.slice(2, eqIdx), current.slice(eqIdx + 1));
-        continue;
-      }
-      const next = argv[i + 1];
-      if (!next || next.startsWith("--")) {
-        flags.set(current.slice(2), true);
-        continue;
-      }
-      flags.set(current.slice(2), next);
-      i++;
-      continue;
-    }
-    positionals.push(current);
-  }
-
+function parseCli(): Cli {
+  const { positionals, values } = parseArgs({
+    args: process.argv.slice(2),
+    options: OPTIONS,
+    strict: false,
+    allowPositionals: true,
+  });
   return {
-    command: positionals[0],
-    rest: positionals.slice(1),
-    flags,
+    positionals,
+    values: values as Record<string, string | boolean | undefined>,
   };
 }
 
-function getFlag(args: ParsedArgs, name: string): string | undefined {
-  const value = args.flags.get(name);
-  return typeof value === "string" ? value : undefined;
+function str(cli: Cli, name: string): string | undefined {
+  const v = cli.values[name];
+  return typeof v === "string" ? v : undefined;
 }
 
-function hasFlag(args: ParsedArgs, name: string): boolean {
-  return args.flags.get(name) === true;
+function flag(cli: Cli, name: string): boolean {
+  return cli.values[name] === true;
+}
+
+function int(cli: Cli, name: string, fallback: number): number {
+  const v = str(cli, name);
+  return v ? Number.parseInt(v, 10) : fallback;
+}
+
+function reqOpts(cli: Cli): BridgeRequestOptions {
+  return {
+    baseUrl: str(cli, "url"),
+    timeoutMs: int(cli, "timeout", DEFAULT_REQUEST_TIMEOUT_MS),
+  };
+}
+
+function baseUrl(cli: Cli): string {
+  return normalizeBridgeUrl(str(cli, "url") || DEFAULT_BRIDGE_HTTP_URL, "http");
 }
 
 function printUsage() {
@@ -110,117 +130,9 @@ Examples:
 `);
 }
 
-function getBaseUrl(args: ParsedArgs): string {
-  return normalizeBridgeUrl(
-    getFlag(args, "url") || DEFAULT_BRIDGE_HTTP_URL,
-    "http",
-  );
-}
-
-function requestJson<T>(
-  args: ParsedArgs,
-  method: string,
-  pathname: string,
-  body?: unknown,
-): Promise<T> {
-  const baseUrl = new URL(getBaseUrl(args));
-  const timeoutMs = Number.parseInt(
-    getFlag(args, "timeout") || String(DEFAULT_REQUEST_TIMEOUT_MS),
-    10,
-  );
-
-  return new Promise<T>((resolve, reject) => {
-    const payload = body === undefined ? undefined : JSON.stringify(body);
-    const req = httpsRequest(
-      {
-        protocol: baseUrl.protocol,
-        hostname: baseUrl.hostname,
-        port: baseUrl.port,
-        path: pathname,
-        method,
-        rejectUnauthorized: false,
-        headers: payload
-          ? {
-              "Content-Type": "application/json",
-              "Content-Length": Buffer.byteLength(payload),
-            }
-          : undefined,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf8");
-          try {
-            const parsed = text
-              ? (JSON.parse(text) as T & {
-                  ok?: boolean;
-                  error?: { message?: string };
-                })
-              : ({} as T & { ok?: boolean; error?: { message?: string } });
-            if ((parsed as { ok?: boolean }).ok === false) {
-              reject(
-                new Error(
-                  (parsed as { error?: { message?: string } }).error?.message ||
-                    "Bridge request failed",
-                ),
-              );
-              return;
-            }
-            resolve(parsed as T);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      },
-    );
-
-    req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
-    });
-    req.on("error", (error) => reject(error));
-    if (payload) req.write(payload);
-    req.end();
-  });
-}
-
-function probeBridge(baseUrlValue: string): Promise<unknown> {
-  const baseUrl = new URL(normalizeBridgeUrl(baseUrlValue, "http"));
-
-  return new Promise((resolve, reject) => {
-    const req = httpsRequest(
-      {
-        protocol: baseUrl.protocol,
-        hostname: baseUrl.hostname,
-        port: baseUrl.port,
-        path: "/health",
-        method: "GET",
-        rejectUnauthorized: false,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-          } catch (error) {
-            reject(error);
-          }
-        });
-      },
-    );
-
-    req.setTimeout(3_000, () => {
-      req.destroy(new Error("Timed out probing bridge health"));
-    });
-    req.on("error", (error) => reject(error));
-    req.end();
-  });
-}
+// ---------------------------------------------------------------------------
+// Input helpers
+// ---------------------------------------------------------------------------
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -230,68 +142,65 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function loadJsonPayload(args: ParsedArgs): Promise<unknown> {
-  const inline = getFlag(args, "input");
+async function loadJsonPayload(cli: Cli): Promise<unknown> {
+  const inline = str(cli, "input");
   if (inline) return JSON.parse(inline);
 
-  const file = getFlag(args, "file");
-  if (file) {
-    const content = await readFile(file, "utf8");
-    return JSON.parse(content);
-  }
+  const file = str(cli, "file");
+  if (file) return JSON.parse(await readFile(file, "utf8"));
 
-  if (hasFlag(args, "stdin") || !process.stdin.isTTY) {
+  if (flag(cli, "stdin") || !process.stdin.isTTY) {
     const content = (await readStdin()).trim();
-    if (!content) return {};
-    return JSON.parse(content);
+    return content ? JSON.parse(content) : {};
   }
 
   return {};
 }
 
-async function loadCode(args: ParsedArgs): Promise<string> {
-  const inline = getFlag(args, "code");
+async function loadCode(cli: Cli): Promise<string> {
+  const inline = str(cli, "code");
   if (inline) return inline;
 
-  const file = getFlag(args, "file");
+  const file = str(cli, "file");
   if (file) return readFile(file, "utf8");
 
-  if (hasFlag(args, "stdin") || !process.stdin.isTTY) {
-    return readStdin();
-  }
+  if (flag(cli, "stdin") || !process.stdin.isTTY) return readStdin();
 
   throw new Error("Missing code. Use --code, --file, or --stdin.");
 }
 
-async function fetchSessions(args: ParsedArgs): Promise<BridgeSessionRecord[]> {
+// ---------------------------------------------------------------------------
+// Session helpers
+// ---------------------------------------------------------------------------
+
+async function fetchSessions(cli: Cli): Promise<BridgeSessionRecord[]> {
   const response = await requestJson<{
     ok: true;
     sessions: BridgeSessionRecord[];
-  }>(args, "GET", "/sessions");
+  }>("GET", "/sessions", undefined, reqOpts(cli));
   return response.sessions;
 }
 
 function filterSessions(
   sessions: BridgeSessionRecord[],
-  args: ParsedArgs,
+  cli: Cli,
 ): BridgeSessionRecord[] {
-  const app = getFlag(args, "app")?.toLowerCase();
-  const documentId = getFlag(args, "document")?.toLowerCase();
+  const app = str(cli, "app")?.toLowerCase();
+  const documentId = str(cli, "document")?.toLowerCase();
 
-  return sessions.filter((session) => {
-    const appMatches = app ? session.snapshot.app.toLowerCase() === app : true;
-    const documentMatches = documentId
-      ? session.snapshot.documentId.toLowerCase().includes(documentId)
-      : true;
-    return appMatches && documentMatches;
+  return sessions.filter((s) => {
+    if (app && s.snapshot.app.toLowerCase() !== app) return false;
+    if (documentId && !s.snapshot.documentId.toLowerCase().includes(documentId))
+      return false;
+    return true;
   });
 }
 
 async function resolveSession(
-  args: ParsedArgs,
+  cli: Cli,
   selector: string | undefined,
 ): Promise<BridgeSessionRecord> {
-  const filtered = filterSessions(await fetchSessions(args), args);
+  const filtered = filterSessions(await fetchSessions(cli), cli);
   if (filtered.length === 0) {
     throw new Error(
       "No bridge sessions available. Start the server and open an add-in.",
@@ -307,32 +216,36 @@ async function resolveSession(
   if (matches.length === 1) return matches[0];
   if (matches.length === 0) throw new Error(`No session matches "${selector}"`);
   throw new Error(
-    `Session selector "${selector}" is ambiguous: ${matches.map((session) => session.snapshot.sessionId).join(", ")}`,
+    `Session selector "${selector}" is ambiguous: ${matches.map((s) => s.snapshot.sessionId).join(", ")}`,
   );
 }
 
-function sanitizeImagesForOutput(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeImagesForOutput(item));
-  }
+function sessionPath(sessionId: string, suffix = ""): string {
+  return `/sessions/${encodeURIComponent(sessionId)}${suffix}`;
+}
 
-  if (!value || typeof value !== "object") {
-    return value;
-  }
+// ---------------------------------------------------------------------------
+// Output helpers
+// ---------------------------------------------------------------------------
+
+function sanitizeImagesForOutput(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeImagesForOutput);
+  if (!value || typeof value !== "object") return value;
 
   const record = value as Record<string, unknown>;
   const sanitized: Record<string, unknown> = {};
-  for (const [key, current] of Object.entries(record)) {
-    sanitized[key] = sanitizeImagesForOutput(current);
+  for (const [key, v] of Object.entries(record)) {
+    sanitized[key] = sanitizeImagesForOutput(v);
   }
 
   const mimeType = typeof record.mimeType === "string" ? record.mimeType : null;
   const imageType = typeof record.type === "string" ? record.type : null;
   const data = typeof record.data === "string" ? record.data : null;
-  const isImagePayload =
-    data !== null && (mimeType?.startsWith("image/") || imageType === "image");
 
-  if (isImagePayload) {
+  if (
+    data !== null &&
+    (mimeType?.startsWith("image/") || imageType === "image")
+  ) {
     sanitized.data = "[omitted image base64]";
     sanitized.base64Length = data.length;
   }
@@ -347,31 +260,23 @@ function printJson(value: unknown) {
 }
 
 function describeSession(session: BridgeSessionRecord): string {
-  const updatedAgoSeconds = Math.round(
-    (Date.now() - session.lastSeenAt) / 1000,
-  );
-  return `${session.snapshot.sessionId}  app=${session.snapshot.app}  document=${session.snapshot.documentId}  tools=${session.snapshot.tools.length}  lastSeen=${updatedAgoSeconds}s ago`;
+  const ago = Math.round((Date.now() - session.lastSeenAt) / 1000);
+  return `${session.snapshot.sessionId}  app=${session.snapshot.app}  document=${session.snapshot.documentId}  tools=${session.snapshot.tools.length}  lastSeen=${ago}s ago`;
 }
 
-function decodeBase64ToBuffer(dataBase64: string): Buffer {
-  return Buffer.from(dataBase64, "base64");
-}
+// ---------------------------------------------------------------------------
+// Image save helpers
+// ---------------------------------------------------------------------------
 
-function imageExtensionFromMimeType(mimeType: string): string {
-  switch (mimeType) {
-    case "image/png":
-      return ".png";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/webp":
-      return ".webp";
-    case "image/gif":
-      return ".gif";
-    case "image/bmp":
-      return ".bmp";
-    default:
-      return ".bin";
-  }
+function imageExtForMime(mimeType: string): string {
+  const map: Record<string, string> = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/bmp": ".bmp",
+  };
+  return map[mimeType] ?? ".bin";
 }
 
 function extractImages(
@@ -380,56 +285,49 @@ function extractImages(
   if (!value || typeof value !== "object") return [];
   const images = (value as { images?: unknown }).images;
   if (!Array.isArray(images)) return [];
-  return images.filter((image): image is { data: string; mimeType: string } =>
-    Boolean(
-      image &&
-        typeof image === "object" &&
-        typeof (image as { data?: unknown }).data === "string" &&
-        typeof (image as { mimeType?: unknown }).mimeType === "string",
-    ),
+  return images.filter(
+    (img): img is { data: string; mimeType: string } =>
+      !!img &&
+      typeof img === "object" &&
+      typeof (img as Record<string, unknown>).data === "string" &&
+      typeof (img as Record<string, unknown>).mimeType === "string",
   );
 }
 
-function buildImageOutputPath(
+function buildImagePath(
   basePath: string,
-  imageIndex: number,
-  imageCount: number,
+  index: number,
+  count: number,
   mimeType: string,
 ): string {
-  if (basePath.includes("{n}")) {
-    return basePath.replaceAll("{n}", String(imageIndex + 1));
-  }
+  if (basePath.includes("{n}"))
+    return basePath.replaceAll("{n}", String(index + 1));
 
-  const extension = path.extname(basePath);
-  const fallbackExtension = imageExtensionFromMimeType(mimeType);
-  if (imageCount === 1) {
-    return extension ? basePath : `${basePath}${fallbackExtension}`;
-  }
+  const ext = path.extname(basePath);
+  const fallbackExt = imageExtForMime(mimeType);
+  if (count === 1) return ext ? basePath : `${basePath}${fallbackExt}`;
 
-  const withoutExtension = extension
-    ? basePath.slice(0, -extension.length)
-    : basePath;
-  const finalExtension = extension || fallbackExtension;
-  return `${withoutExtension}-${imageIndex + 1}${finalExtension}`;
+  const stem = ext ? basePath.slice(0, -ext.length) : basePath;
+  return `${stem}-${index + 1}${ext || fallbackExt}`;
 }
 
-async function saveImagesToPaths(
+async function saveFile(localPath: string, data: Buffer): Promise<void> {
+  await mkdir(path.dirname(localPath), { recursive: true });
+  await writeFile(localPath, data);
+}
+
+async function saveImages(
   images: Array<{ data: string; mimeType: string }>,
   outputPath: string,
 ): Promise<string[]> {
-  const savedPaths: string[] = [];
+  const saved: string[] = [];
   for (let i = 0; i < images.length; i++) {
-    const image = images[i];
-    const finalPath = buildImageOutputPath(
-      outputPath,
-      i,
-      images.length,
-      image.mimeType,
-    );
-    await saveLocalFile(finalPath, decodeBase64ToBuffer(image.data));
-    savedPaths.push(finalPath);
+    const img = images[i];
+    const dest = buildImagePath(outputPath, i, images.length, img.mimeType);
+    await saveFile(dest, Buffer.from(img.data, "base64"));
+    saved.push(dest);
   }
-  return savedPaths;
+  return saved;
 }
 
 async function maybeSaveToolImages(
@@ -438,23 +336,76 @@ async function maybeSaveToolImages(
 ): Promise<string[]> {
   if (!outputPath) return [];
   const images = extractImages(value);
-  if (images.length === 0) {
+  if (images.length === 0)
     throw new Error("No images were returned by this command");
+  return saveImages(images, outputPath);
+}
+
+function logSavedImages(cli: Cli, savedPaths: string[]) {
+  if (savedPaths.length > 0 && !flag(cli, "json")) {
+    for (const p of savedPaths) console.log(`Saved image: ${p}`);
   }
-  return saveImagesToPaths(images, outputPath);
 }
 
-async function saveLocalFile(localPath: string, data: Buffer): Promise<void> {
-  await mkdir(path.dirname(localPath), { recursive: true });
-  await writeFile(localPath, data);
+// ---------------------------------------------------------------------------
+// Positional arg splitter for commands with optional [session] prefix
+//
+// Many commands accept `[session] <required> [optional]`. When there are
+// more positionals than the command strictly needs, we try to resolve the
+// first one as a session selector. If it matches we consume it; otherwise
+// we fall back and treat every positional as a regular arg.
+// ---------------------------------------------------------------------------
+
+interface SplitResult {
+  session: BridgeSessionRecord;
+  args: string[];
 }
 
-async function commandServe(args: ParsedArgs) {
-  const host = getFlag(args, "host");
-  const port = getFlag(args, "port")
-    ? Number.parseInt(getFlag(args, "port") as string, 10)
+async function splitSessionArgs(
+  cli: Cli,
+  positionals: string[],
+  minArgs: number,
+): Promise<SplitResult> {
+  // No positionals at all — resolve session with no selector.
+  if (positionals.length === 0) {
+    return { session: await resolveSession(cli, undefined), args: [] };
+  }
+
+  // Exactly the minimum required — no session selector present.
+  if (positionals.length <= minArgs) {
+    return { session: await resolveSession(cli, undefined), args: positionals };
+  }
+
+  // More positionals than minimum — try treating the first as a session
+  // selector. If it doesn't match any session, treat all as regular args.
+  const sessions = filterSessions(await fetchSessions(cli), cli);
+  const candidate = positionals[0];
+  const matches = findMatchingSession(sessions, candidate);
+
+  if (matches.length === 1) {
+    return { session: matches[0], args: positionals.slice(1) };
+  }
+
+  if (matches.length > 1) {
+    throw new Error(
+      `Session selector "${candidate}" is ambiguous: ${matches.map((s) => s.snapshot.sessionId).join(", ")}`,
+    );
+  }
+
+  // No session match — resolve without selector (auto-pick single session)
+  return { session: await resolveSession(cli, undefined), args: positionals };
+}
+
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
+
+async function commandServe(cli: Cli) {
+  const host = str(cli, "host");
+  const port = str(cli, "port")
+    ? Number.parseInt(str(cli, "port")!, 10)
     : undefined;
-  const baseUrl = normalizeBridgeUrl(
+  const url = normalizeBridgeUrl(
     `https://${host || "localhost"}:${port || 4017}`,
     "http",
   );
@@ -469,8 +420,8 @@ async function commandServe(args: ParsedArgs) {
       (error as Error & { code?: string }).code === "EADDRINUSE"
     ) {
       try {
-        await probeBridge(baseUrl);
-        console.log(`Bridge server already running at ${baseUrl}`);
+        await probeBridge(url);
+        console.log(`Bridge server already running at ${url}`);
         return;
       } catch {
         throw error;
@@ -480,165 +431,148 @@ async function commandServe(args: ParsedArgs) {
   }
 
   const shutdown = async () => {
-    if (server) {
-      await server.close();
-    }
+    if (server) await server.close();
     process.exit(0);
   };
 
-  process.on("SIGINT", () => {
-    shutdown().catch((error) => {
-      console.error(error);
-      process.exit(1);
-    });
-  });
-  process.on("SIGTERM", () => {
-    shutdown().catch((error) => {
-      console.error(error);
-      process.exit(1);
-    });
-  });
+  process.on("SIGINT", () => shutdown().catch(() => process.exit(1)));
+  process.on("SIGTERM", () => shutdown().catch(() => process.exit(1)));
 
   console.log(`Bridge server running at ${server.httpUrl}`);
   await new Promise(() => undefined);
 }
 
-async function commandStop(args: ParsedArgs) {
+async function commandStop(cli: Cli) {
   try {
     const response = await requestJson<{ ok: true; message: string }>(
-      args,
       "POST",
       "/shutdown",
       {},
+      reqOpts(cli),
     );
     console.log(response.message);
-  } catch (error) {
+  } catch {
     try {
-      await probeBridge(getBaseUrl(args));
-      throw error;
+      await probeBridge(baseUrl(cli));
+      throw new Error("Failed to stop bridge server");
     } catch {
       console.log("Bridge server is not running.");
     }
   }
 }
 
-async function commandList(args: ParsedArgs) {
-  const sessions = filterSessions(await fetchSessions(args), args);
-  if (hasFlag(args, "json")) {
+async function commandList(cli: Cli) {
+  const sessions = filterSessions(await fetchSessions(cli), cli);
+  if (flag(cli, "json")) {
     printJson(sessions);
     return;
   }
-
   if (sessions.length === 0) {
     console.log("No sessions connected.");
     return;
   }
-
-  for (const session of sessions) {
-    console.log(describeSession(session));
-  }
+  for (const s of sessions) console.log(describeSession(s));
 }
 
-async function commandWait(args: ParsedArgs) {
-  const selector = args.rest[0];
-  const timeoutMs = Number.parseInt(
-    getFlag(args, "timeout") || String(DEFAULT_REQUEST_TIMEOUT_MS),
-    10,
-  );
+async function commandWait(cli: Cli) {
+  const selector = cli.positionals[1];
+  const timeoutMs = int(cli, "timeout", DEFAULT_REQUEST_TIMEOUT_MS);
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    const sessions = filterSessions(await fetchSessions(args), args);
+    const sessions = filterSessions(await fetchSessions(cli), cli);
     const matches = selector
       ? findMatchingSession(sessions, selector)
       : sessions;
     if (matches.length > 0) {
-      const session = matches[0];
-      if (hasFlag(args, "json")) {
-        printJson(session);
+      if (flag(cli, "json")) {
+        printJson(matches[0]);
       } else {
-        console.log(describeSession(session));
+        console.log(describeSession(matches[0]));
       }
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await new Promise((r) => setTimeout(r, 1_000));
   }
 
   throw new Error(`Timed out waiting for bridge session after ${timeoutMs}ms`);
 }
 
-async function commandInspect(args: ParsedArgs) {
-  const session = await resolveSession(args, args.rest[0]);
+async function commandInspect(cli: Cli) {
+  const session = await resolveSession(cli, cli.positionals[1]);
   const response = await requestJson<{
     ok: true;
     session: BridgeSessionRecord;
-  }>(
-    args,
-    "GET",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}`,
-  );
+  }>("GET", sessionPath(session.snapshot.sessionId), undefined, reqOpts(cli));
   printJson(response.session);
 }
 
-async function commandMetadata(args: ParsedArgs) {
-  const session = await resolveSession(args, args.rest[0]);
+async function commandMetadata(cli: Cli) {
+  const session = await resolveSession(cli, cli.positionals[1]);
   const response = await requestJson<{
     ok: true;
     metadata: unknown;
     snapshot: BridgeSessionSnapshot;
   }>(
-    args,
     "POST",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/metadata`,
+    sessionPath(session.snapshot.sessionId, "/metadata"),
     {},
+    reqOpts(cli),
   );
   printJson(response);
 }
 
-async function commandEvents(args: ParsedArgs) {
-  const session = await resolveSession(args, args.rest[0]);
-  const limit = Number.parseInt(getFlag(args, "limit") || "50", 10);
+async function commandEvents(cli: Cli) {
+  const session = await resolveSession(cli, cli.positionals[1]);
+  const limit = int(cli, "limit", 50);
   const response = await requestJson<{ ok: true; events: BridgeStoredEvent[] }>(
-    args,
     "GET",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/events?limit=${Math.max(1, limit)}`,
+    sessionPath(
+      session.snapshot.sessionId,
+      `/events?limit=${Math.max(1, limit)}`,
+    ),
+    undefined,
+    reqOpts(cli),
   );
   printJson(response.events);
 }
 
-async function commandTool(args: ParsedArgs) {
-  const selector = args.rest.length > 1 ? args.rest[0] : undefined;
-  const toolName = args.rest.length > 1 ? args.rest[1] : args.rest[0];
+async function commandTool(cli: Cli) {
+  // tool [session] <toolName>  — toolName is required (minArgs=1)
+  const { session, args } = await splitSessionArgs(
+    cli,
+    cli.positionals.slice(1),
+    1,
+  );
+  const toolName = args[0];
   if (!toolName) {
     throw new Error(
       "Usage: office-bridge tool [session] <toolName> [--input JSON | --file PATH] [--out PATH]",
     );
   }
-  const session = await resolveSession(args, selector);
-  const payload = await loadJsonPayload(args);
+
+  const payload = await loadJsonPayload(cli);
   const response = await requestJson<{ ok: true; result: unknown }>(
-    args,
     "POST",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/tools/${encodeURIComponent(toolName)}`,
+    sessionPath(
+      session.snapshot.sessionId,
+      `/tools/${encodeURIComponent(toolName)}`,
+    ),
     { args: payload },
+    reqOpts(cli),
   );
-  const savedPaths = await maybeSaveToolImages(
-    response.result,
-    getFlag(args, "out"),
+  logSavedImages(
+    cli,
+    await maybeSaveToolImages(response.result, str(cli, "out")),
   );
-  if (savedPaths.length > 0 && !hasFlag(args, "json")) {
-    for (const savedPath of savedPaths) {
-      console.log(`Saved image: ${savedPath}`);
-    }
-  }
   printJson(response.result);
 }
 
-async function commandExec(args: ParsedArgs) {
-  const session = await resolveSession(args, args.rest[0]);
-  const code = await loadCode(args);
-  const explanation = getFlag(args, "explanation");
-  const sandbox = hasFlag(args, "sandbox");
+async function commandExec(cli: Cli) {
+  const session = await resolveSession(cli, cli.positionals[1]);
+  const code = await loadCode(cli);
+  const explanation = str(cli, "explanation");
+  const sandbox = flag(cli, "sandbox");
 
   if (sandbox && !getDefaultRawExecutionTool(session.snapshot.app)) {
     throw new Error(
@@ -652,64 +586,59 @@ async function commandExec(args: ParsedArgs) {
     toolName?: string;
     mode: "unsafe" | "sandbox";
   }>(
-    args,
     "POST",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/exec`,
+    sessionPath(session.snapshot.sessionId, "/exec"),
     { code, explanation, unsafe: !sandbox },
+    reqOpts(cli),
   );
+
   if (response.mode === "sandbox") {
     const summaryError = summarizeExecutionError(response.result);
-    if (summaryError) {
+    if (summaryError)
       console.error(
         `Tool ${response.toolName} reported an error: ${summaryError}`,
       );
-    }
   }
-  const savedPaths = await maybeSaveToolImages(
-    response.result,
-    getFlag(args, "out"),
+
+  logSavedImages(
+    cli,
+    await maybeSaveToolImages(response.result, str(cli, "out")),
   );
-  if (savedPaths.length > 0 && !hasFlag(args, "json")) {
-    for (const savedPath of savedPaths) {
-      console.log(`Saved image: ${savedPath}`);
-    }
-  }
   printJson(response);
 }
 
-async function commandRpc(args: ParsedArgs) {
-  const selector = args.rest.length > 1 ? args.rest[0] : undefined;
-  const method = (args.rest.length > 1 ? args.rest[1] : args.rest[0]) as
-    | BridgeInvokeMethod
-    | undefined;
+async function commandRpc(cli: Cli) {
+  // rpc [session] <method>  — method is required (minArgs=1)
+  const { session, args } = await splitSessionArgs(
+    cli,
+    cli.positionals.slice(1),
+    1,
+  );
+  const method = args[0] as BridgeInvokeMethod | undefined;
   if (!method) {
     throw new Error(
       "Usage: office-bridge rpc [session] <method> [--input JSON | --file PATH]",
     );
   }
-  const session = await resolveSession(args, selector);
-  const payload = await loadJsonPayload(args);
+
+  const payload = await loadJsonPayload(cli);
   const response = await requestJson<{ ok: true; result: unknown }>(
-    args,
     "POST",
     "/rpc",
     {
       sessionId: session.snapshot.sessionId,
       method,
       params: payload,
-      timeoutMs: Number.parseInt(
-        getFlag(args, "timeout") || String(DEFAULT_REQUEST_TIMEOUT_MS),
-        10,
-      ),
+      timeoutMs: int(cli, "timeout", DEFAULT_REQUEST_TIMEOUT_MS),
     },
+    reqOpts(cli),
   );
   printJson(response.result);
 }
 
-async function commandScreenshot(args: ParsedArgs) {
-  const selector = args.rest[0];
-  const session = await resolveSession(args, selector);
-  const explanation = getFlag(args, "explanation");
+async function commandScreenshot(cli: Cli) {
+  const session = await resolveSession(cli, cli.positionals[1]);
+  const explanation = str(cli, "explanation");
 
   let toolName: string;
   let payload: Record<string, unknown> = {};
@@ -718,7 +647,7 @@ async function commandScreenshot(args: ParsedArgs) {
   switch (session.snapshot.app) {
     case "word": {
       toolName = "screenshot_document";
-      const pages = getFlag(args, "pages");
+      const pages = str(cli, "pages");
       if (pages) payload.pages = pages;
       if (explanation) payload.explanation = explanation;
       defaultOutputBase = "word-screenshot.png";
@@ -726,40 +655,33 @@ async function commandScreenshot(args: ParsedArgs) {
     }
     case "excel": {
       toolName = "screenshot_range";
-      const sheetId = getFlag(args, "sheet-id");
-      const range = getFlag(args, "range");
-      if (!sheetId || !range) {
+      const sheetId = str(cli, "sheet-id");
+      const range = str(cli, "range");
+      if (!sheetId || !range)
         throw new Error(
           "Excel screenshots require --sheet-id <id> and --range <A1:B2>",
         );
-      }
-      payload = {
-        sheetId: Number.parseInt(sheetId, 10),
-        range,
-      };
-      if (Number.isNaN(payload.sheetId as number)) {
+      const parsedSheetId = Number.parseInt(sheetId, 10);
+      if (Number.isNaN(parsedSheetId))
         throw new Error(`Invalid --sheet-id: ${sheetId}`);
-      }
+      payload = { sheetId: parsedSheetId, range };
       if (explanation) payload.explanation = explanation;
       defaultOutputBase = `excel-${range.replaceAll(/[^A-Za-z0-9_-]/g, "_")}.png`;
       break;
     }
     case "powerpoint": {
       toolName = "screenshot_slide";
-      const slideIndex = getFlag(args, "slide-index") || getFlag(args, "slide");
-      if (!slideIndex) {
+      const slideIndex = str(cli, "slide-index") || str(cli, "slide");
+      if (!slideIndex)
         throw new Error(
           "PowerPoint screenshots require --slide-index <0-based index>",
         );
-      }
-      payload = {
-        slide_index: Number.parseInt(slideIndex, 10),
-      };
-      if (Number.isNaN(payload.slide_index as number)) {
+      const parsedIndex = Number.parseInt(slideIndex, 10);
+      if (Number.isNaN(parsedIndex))
         throw new Error(`Invalid --slide-index: ${slideIndex}`);
-      }
+      payload = { slide_index: parsedIndex };
       if (explanation) payload.explanation = explanation;
-      defaultOutputBase = `powerpoint-slide-${payload.slide_index}.png`;
+      defaultOutputBase = `powerpoint-slide-${parsedIndex}.png`;
       break;
     }
     default:
@@ -769,113 +691,116 @@ async function commandScreenshot(args: ParsedArgs) {
   }
 
   const response = await requestJson<{ ok: true; result: unknown }>(
-    args,
     "POST",
-    `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/tools/${encodeURIComponent(toolName)}`,
+    sessionPath(
+      session.snapshot.sessionId,
+      `/tools/${encodeURIComponent(toolName)}`,
+    ),
     { args: payload },
+    reqOpts(cli),
   );
 
-  const outputPath = getFlag(args, "out") || defaultOutputBase;
+  const outputPath = str(cli, "out") || defaultOutputBase;
   const savedPaths = await maybeSaveToolImages(response.result, outputPath);
-  if (hasFlag(args, "json")) {
-    printJson({
-      toolName,
-      savedPaths,
-      result: response.result,
-    });
+  if (flag(cli, "json")) {
+    printJson({ toolName, savedPaths, result: response.result });
     return;
   }
-  for (const savedPath of savedPaths) {
-    console.log(`Saved screenshot: ${savedPath}`);
-  }
+  for (const p of savedPaths) console.log(`Saved screenshot: ${p}`);
 }
 
-async function commandVfs(args: ParsedArgs) {
-  const subcommand = args.rest[0];
-  if (!subcommand) {
+// ---------------------------------------------------------------------------
+// VFS — each subcommand has explicit positional definitions
+// ---------------------------------------------------------------------------
+
+async function commandVfs(cli: Cli) {
+  const subcommand = cli.positionals[1];
+  if (!subcommand)
     throw new Error("Usage: office-bridge vfs <ls|pull|push|rm> [session] ...");
-  }
+
+  // Positionals after the subcommand: e.g. `vfs pull word /remote ./local`
+  const rest = cli.positionals.slice(2);
 
   switch (subcommand) {
     case "ls": {
-      const selector = args.rest.length > 2 ? args.rest[1] : undefined;
-      const prefix = args.rest.length > 2 ? args.rest[2] : args.rest[1];
-      const session = await resolveSession(args, selector);
+      // ls [session] [prefix]  — 0 required args
+      const { session, args } = await splitSessionArgs(cli, rest, 0);
+      const prefix = args[0];
       const response = await requestJson<{
         ok: true;
         result: BridgeVfsEntry[];
       }>(
-        args,
         "POST",
-        `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/vfs/list`,
+        sessionPath(session.snapshot.sessionId, "/vfs/list"),
         prefix ? { prefix } : {},
+        reqOpts(cli),
       );
-      if (hasFlag(args, "json")) {
+      if (flag(cli, "json")) {
         printJson(response.result);
         return;
       }
-      for (const entry of response.result) {
+      for (const entry of response.result)
         console.log(`${entry.path}\t${entry.byteLength}`);
-      }
       return;
     }
     case "pull": {
-      const selector = args.rest.length > 3 ? args.rest[1] : undefined;
-      const remotePath = args.rest.length > 3 ? args.rest[2] : args.rest[1];
-      const localPathArg = args.rest.length > 3 ? args.rest[3] : args.rest[2];
-      if (!remotePath) {
+      // pull [session] <remotePath> [localPath]  — 1 required arg
+      const { session, args } = await splitSessionArgs(cli, rest, 1);
+      const remotePath = args[0];
+      if (!remotePath)
         throw new Error(
           "Usage: office-bridge vfs pull [session] <remotePath> [localPath]",
         );
-      }
-      const session = await resolveSession(args, selector);
+      const localPath = args[1] || path.basename(remotePath);
+
       const response = await requestJson<{
         ok: true;
         result: BridgeVfsReadResult;
       }>(
-        args,
         "POST",
-        `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/vfs/read`,
+        sessionPath(session.snapshot.sessionId, "/vfs/read"),
         { path: remotePath, encoding: "base64" },
+        reqOpts(cli),
       );
-      const result = response.result;
-      const localPath = localPathArg || path.basename(remotePath);
-      if (!result.dataBase64) {
+      if (!response.result.dataBase64)
         throw new Error(`No binary data returned for ${remotePath}`);
-      }
-      const buffer = decodeBase64ToBuffer(result.dataBase64);
-      await saveLocalFile(localPath, buffer);
-      if (hasFlag(args, "json")) {
+
+      await saveFile(
+        localPath,
+        Buffer.from(response.result.dataBase64, "base64"),
+      );
+      if (flag(cli, "json")) {
         printJson({
           remotePath,
           localPath,
-          byteLength: result.byteLength,
+          byteLength: response.result.byteLength,
         });
         return;
       }
       console.log(
-        `Pulled ${remotePath} -> ${localPath} (${result.byteLength} bytes)`,
+        `Pulled ${remotePath} -> ${localPath} (${response.result.byteLength} bytes)`,
       );
       return;
     }
     case "push": {
-      const selector = args.rest.length > 3 ? args.rest[1] : undefined;
-      const localPath = args.rest.length > 3 ? args.rest[2] : args.rest[1];
-      const remotePath = args.rest.length > 3 ? args.rest[3] : args.rest[2];
+      // push [session] <localPath> <remotePath>  — 2 required args
+      const { session, args } = await splitSessionArgs(cli, rest, 2);
+      const localPath = args[0];
+      const remotePath = args[1];
       if (!localPath || !remotePath) {
         throw new Error(
           "Usage: office-bridge vfs push [session] <localPath> <remotePath>",
         );
       }
-      const session = await resolveSession(args, selector);
+
       const data = await readFile(localPath);
       const response = await requestJson<{ ok: true; result: unknown }>(
-        args,
         "POST",
-        `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/vfs/write`,
+        sessionPath(session.snapshot.sessionId, "/vfs/write"),
         { path: remotePath, dataBase64: data.toString("base64") },
+        reqOpts(cli),
       );
-      if (hasFlag(args, "json")) {
+      if (flag(cli, "json")) {
         printJson(response.result);
         return;
       }
@@ -883,19 +808,19 @@ async function commandVfs(args: ParsedArgs) {
       return;
     }
     case "rm": {
-      const selector = args.rest.length > 2 ? args.rest[1] : undefined;
-      const remotePath = args.rest.length > 2 ? args.rest[2] : args.rest[1];
-      if (!remotePath) {
+      // rm [session] <remotePath>  — 1 required arg
+      const { session, args } = await splitSessionArgs(cli, rest, 1);
+      const remotePath = args[0];
+      if (!remotePath)
         throw new Error("Usage: office-bridge vfs rm [session] <remotePath>");
-      }
-      const session = await resolveSession(args, selector);
+
       const response = await requestJson<{ ok: true; result: unknown }>(
-        args,
         "POST",
-        `/sessions/${encodeURIComponent(session.snapshot.sessionId)}/vfs/delete`,
+        sessionPath(session.snapshot.sessionId, "/vfs/delete"),
         { path: remotePath },
+        reqOpts(cli),
       );
-      if (hasFlag(args, "json")) {
+      if (flag(cli, "json")) {
         printJson(response.result);
         return;
       }
@@ -907,55 +832,37 @@ async function commandVfs(args: ParsedArgs) {
   }
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const command = args.command;
+// ---------------------------------------------------------------------------
+// Main dispatch
+// ---------------------------------------------------------------------------
 
-  if (!command || command === "help" || hasFlag(args, "help")) {
+const COMMANDS: Record<string, (cli: Cli) => Promise<void>> = {
+  serve: commandServe,
+  stop: commandStop,
+  list: commandList,
+  wait: commandWait,
+  inspect: commandInspect,
+  metadata: commandMetadata,
+  events: commandEvents,
+  tool: commandTool,
+  exec: commandExec,
+  rpc: commandRpc,
+  screenshot: commandScreenshot,
+  vfs: commandVfs,
+};
+
+async function main() {
+  const cli = parseCli();
+  const command = cli.positionals[0];
+
+  if (!command || command === "help" || flag(cli, "help")) {
     printUsage();
     return;
   }
 
-  switch (command) {
-    case "serve":
-      await commandServe(args);
-      return;
-    case "stop":
-      await commandStop(args);
-      return;
-    case "list":
-      await commandList(args);
-      return;
-    case "wait":
-      await commandWait(args);
-      return;
-    case "inspect":
-      await commandInspect(args);
-      return;
-    case "metadata":
-      await commandMetadata(args);
-      return;
-    case "events":
-      await commandEvents(args);
-      return;
-    case "tool":
-      await commandTool(args);
-      return;
-    case "exec":
-      await commandExec(args);
-      return;
-    case "rpc":
-      await commandRpc(args);
-      return;
-    case "screenshot":
-      await commandScreenshot(args);
-      return;
-    case "vfs":
-      await commandVfs(args);
-      return;
-    default:
-      throw new Error(`Unknown command: ${command}`);
-  }
+  const handler = COMMANDS[command];
+  if (!handler) throw new Error(`Unknown command: ${command}`);
+  await handler(cli);
 }
 
 main().catch((error) => {

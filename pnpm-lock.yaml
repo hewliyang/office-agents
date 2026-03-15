@@ -38,9 +38,6 @@ importers:
 
   packages/bridge:
     dependencies:
-      '@office-agents/core':
-        specifier: workspace:*
-        version: link:../core
       ws:
         specifier: ^8.18.3
         version: 8.19.0

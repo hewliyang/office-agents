@@ -8,13 +8,14 @@ const APPS = {
 	excel: { dir: "packages/excel", tagPrefix: "excel-v" },
 	ppt: { dir: "packages/powerpoint", tagPrefix: "ppt-v" },
 	sdk: { dir: "packages/sdk", tagPrefix: "sdk-v" },
+	bridge: { dir: "packages/bridge", tagPrefix: "bridge-v" },
 };
 
 const appName = process.argv[2];
 const bumpType = process.argv[3];
 
 if (!APPS[appName] || !["major", "minor", "patch"].includes(bumpType)) {
-	console.error("Usage: node scripts/release.mjs <excel|ppt|sdk> <major|minor|patch>");
+	console.error("Usage: node scripts/release.mjs <excel|ppt|sdk|bridge> <major|minor|patch>");
 	process.exit(1);
 }
 
