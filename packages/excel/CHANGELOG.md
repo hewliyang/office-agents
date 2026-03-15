@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Features
+
+- **Dev bridge integration** — In development mode the taskpane auto-connects to the local Office bridge, enabling CLI-driven tool calls, screenshots, VFS access, and live inspection.
+- **Files panel** — New "Files" tab in the chat header lets you browse, preview, download, and delete VFS files.
+
+### Fixes
+
+- **`btoa`/`atob` in `eval_officejs`** — Base64 helpers are now available inside the Office.js sandbox.
+- **CSS source path** — Fixed `streamdown` Tailwind `@source` path after monorepo restructure.
+
 ## [0.2.6] - 2026-03-08
 
 ### Fixes
