@@ -150,6 +150,28 @@ html {
   line-height: 1.5;
 }
 
+.markdown-content pre.shiki {
+  padding: 0.75em;
+}
+
+.markdown-content pre.shiki code {
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-content pre.shiki .line {
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .markdown-content .shiki,
+[data-theme="dark"] .markdown-content .shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+[data-theme="dark"] .markdown-content .shiki {
+  background-color: var(--shiki-dark-bg) !important;
+}
+
 .markdown-content [data-streamdown="code-block"] {
   margin: 0.5em 0;
   border-radius: var(--chat-radius);

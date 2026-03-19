@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixes
+
+- **Dirty range indicators lost on reload** — `nameMap` (sheet ID → name) was only populated during `send()`, so dirty range badges disappeared after an extension reload or session switch. Now `nameMap` is eagerly refreshed on `init()` and `switchSession()`.
+
 ## [0.0.5] - 2026-03-15
 
 ### Features

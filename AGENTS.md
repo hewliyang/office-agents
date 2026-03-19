@@ -5,7 +5,7 @@
 **Office Agents** is a pnpm monorepo containing Microsoft Office Add-ins with integrated AI chat interfaces. Users can chat with LLM providers (OpenAI, Anthropic, Google, etc.) directly within Office apps using their own API keys (BYOK). The agent has Office read/write tools, a sandboxed bash shell, and a virtual filesystem for file uploads.
 
 - **@office-agents/sdk** (`packages/sdk/`) — Headless SDK: agent runtime, tools (bash, read), storage, VFS, skills, OAuth, web search/fetch, provider config
-- **@office-agents/core** (`packages/core/`) — React chat UI layer: re-exports SDK + ChatInterface, settings panel, sessions, message rendering
+- **@office-agents/core** (`packages/core/`) — Svelte chat UI layer: re-exports SDK + ChatInterface, settings panel, sessions, message rendering
 - **@office-agents/bridge** (`packages/bridge/`) — Local HTTPS/WebSocket RPC bridge + CLI for talking to a live Office add-in runtime during development
 - **@office-agents/excel** (`packages/excel/`) — Excel Add-in: spreadsheet tools, Office.js wrappers, system prompt, cell-range follow mode
 - **@office-agents/powerpoint** (`packages/powerpoint/`) — PowerPoint Add-in: slide/OOXML tools, JSZip-based PPTX editing, system prompt
@@ -17,24 +17,24 @@
 - `packages/sdk/src/tools/` — Shared tools (`bash.ts`, `read-file.ts`, `types.ts` with `defineTool`)
 - `packages/sdk/src/vfs/` — Virtual filesystem + custom commands (`setCustomCommands`)
 - `packages/sdk/src/storage/` — IndexedDB sessions, VFS file persistence, skills
-- `packages/core/src/chat/` — React chat components (`chat-interface.tsx`, `chat-context.tsx`, `app-adapter.ts`, `settings-panel.tsx`)
+- `packages/core/src/chat/` — Svelte chat components and controller (`chat-interface.svelte`, `chat-controller.ts`, `app-adapter.ts`, `settings-panel.svelte`)
 - `packages/bridge/src/server.ts` — Local HTTPS/WebSocket bridge server and session registry
 - `packages/bridge/src/client.ts` — Add-in bridge client that connects from the Office taskpane to the local bridge
 - `packages/bridge/src/cli.ts` — `office-bridge` CLI (`list`, `inspect`, `metadata`, `tool`, `exec`, `events`)
-- `packages/excel/src/lib/adapter.tsx` — Excel `AppAdapter` (tools, prompt, metadata, follow mode)
+- `packages/excel/src/lib/adapter.ts` — Excel `AppAdapter` (tools, prompt, metadata, follow mode)
 - `packages/excel/src/lib/tools/` — Excel-specific tools (`set-cell-range`, `get-cell-ranges`, `eval-officejs`, etc.)
-- `packages/powerpoint/src/lib/adapter.tsx` — PowerPoint `AppAdapter` (tools, prompt, metadata)
+- `packages/powerpoint/src/lib/adapter.ts` — PowerPoint `AppAdapter` (tools, prompt, metadata)
 - `packages/powerpoint/src/lib/tools/` — PPT tools (`edit-slide-xml`, `screenshot-slide`, `edit-slide-chart`, etc.)
 - `packages/powerpoint/src/lib/pptx/` — OOXML/PPTX helpers (`slide-zip.ts`, `xml-utils.ts`)
-- `packages/word/src/lib/adapter.tsx` — Word `AppAdapter` (tools, prompt, metadata)
+- `packages/word/src/lib/adapter.ts` — Word `AppAdapter` (tools, prompt, metadata)
 - `packages/word/src/lib/tools/` — Word tools (`get-document-text`, `get-document-structure`, `get-paragraph-ooxml`, `screenshot-document`, `execute-office-js`)
 
 ## Tech Stack
 
-- **Framework**: React 18
+- **Framework**: Svelte 5
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4 + CSS variables for theming
-- **Icons**: Lucide React (`lucide-react`)
+- **Icons**: Lucide icons (`lucide-svelte`)
 - **Build Tool**: Vite 6
 - **Office Integration**: Office.js API (`@types/office-js`)
 - **LLM Integration**: `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core` (unified LLM & agent API)
@@ -56,8 +56,10 @@ interface AppAdapter {
   getDocumentMetadata?: () => Promise<...>;         // Injected into each prompt
   onToolResult?: (id, result, isError) => void;     // Follow-mode, navigation
   metadataTag?: string;                             // XML tag for metadata (default: "doc_context")
-  Link?: ComponentType<LinkProps>;                  // Custom markdown link component
-  ToolExtras?: ComponentType<ToolExtrasProps>;      // Extra UI in tool call blocks
+  handleLinkClick?: (context) => "handled" | "default" | Promise<...>;
+  ToolExtras?: Component<ToolExtrasProps>;          // Extra UI in tool call blocks
+  HeaderExtras?: Component;                         // Extra header controls
+  SelectionIndicator?: Component;                   // App-specific selection status UI
   appName?: string;
   appVersion?: string;
   emptyStateMessage?: string;

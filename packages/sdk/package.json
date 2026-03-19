@@ -31,7 +31,8 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run"
   },
   "dependencies": {
     "@mariozechner/pi-agent-core": "catalog:",
@@ -56,6 +57,7 @@
     }
   },
   "devDependencies": {
-    "@types/office-js": "^1.0.377"
+    "@types/office-js": "^1.0.377",
+    "fake-indexeddb": "^6.2.2"
   }
 }

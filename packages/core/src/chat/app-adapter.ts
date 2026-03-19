@@ -1,17 +1,22 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { SkillMeta, StorageNamespace } from "@office-agents/sdk";
 import type { CustomCommand } from "just-bash/browser";
-import type { ComponentType } from "react";
+import type { Component } from "svelte";
+
+export type MaybePromise<T> = T | Promise<T>;
+
+export interface LinkClickContext {
+  href: string;
+  anchor: HTMLAnchorElement;
+  event: MouseEvent;
+}
+
+export type LinkClickResult = "handled" | "default";
 
 export interface ToolExtrasProps {
   toolName: string;
   result?: string;
   expanded: boolean;
-}
-
-export interface LinkProps {
-  href: string;
-  children: React.ReactNode;
 }
 
 export interface AppAdapter {
@@ -32,8 +37,10 @@ export interface AppAdapter {
   customCommands?: () => CustomCommand[];
   hasImageSearch?: boolean;
   showFollowModeToggle?: boolean;
-  ToolExtras?: ComponentType<ToolExtrasProps>;
-  Link?: ComponentType<LinkProps>;
-  HeaderExtras?: ComponentType;
-  SelectionIndicator?: ComponentType;
+  handleLinkClick?: (
+    context: LinkClickContext,
+  ) => MaybePromise<LinkClickResult>;
+  ToolExtras?: Component<ToolExtrasProps>;
+  HeaderExtras?: Component;
+  SelectionIndicator?: Component;
 }

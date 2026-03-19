@@ -1,5 +1,5 @@
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/postcss";
-import react from "@vitejs/plugin-react";
 import autoprefixer from "autoprefixer";
 import { createRequire } from "module";
 import path from "path";
@@ -67,7 +67,7 @@ export default defineConfig(async ({ mode }) => {
     },
 
     plugins: [
-      react(),
+      svelte(),
 
       nodePolyfills({
         include: [
