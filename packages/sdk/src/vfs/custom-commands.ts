@@ -5,6 +5,7 @@ import { loadSavedConfig } from "../provider-config";
 import { loadWebConfig } from "../web/config";
 import { fetchWeb } from "../web/fetch";
 import { searchImages, searchWeb } from "../web/search";
+import { parseFlags, parsePageRanges } from "./command-utils";
 
 interface CommandFs {
   mkdir(path: string, options: { recursive: boolean }): Promise<void>;
@@ -48,48 +49,6 @@ async function writeVfsOutput(
   }
   await ctx.fs.writeFile(resolved, content);
   return resolved;
-}
-
-function parsePageRanges(spec: string, maxPage: number): Set<number> {
-  const pages = new Set<number>();
-  for (const part of spec.split(",")) {
-    const trimmed = part.trim();
-    const rangeParts = trimmed.split("-");
-    if (rangeParts.length === 2) {
-      const start = Math.max(1, Number.parseInt(rangeParts[0], 10));
-      const end = Math.min(maxPage, Number.parseInt(rangeParts[1], 10));
-      if (!Number.isNaN(start) && !Number.isNaN(end)) {
-        for (let i = start; i <= end; i++) pages.add(i);
-      }
-    } else {
-      const page = Number.parseInt(trimmed, 10);
-      if (!Number.isNaN(page) && page >= 1 && page <= maxPage) {
-        pages.add(page);
-      }
-    }
-  }
-  return pages;
-}
-
-function parseFlags(args: string[]): {
-  flags: Record<string, string>;
-  positional: string[];
-} {
-  const flags: Record<string, string> = {};
-  const positional: string[] = [];
-
-  for (const arg of args) {
-    const match = arg.match(/^--(\w+)=(.+)$/);
-    if (match) {
-      flags[match[1]] = match[2];
-    } else if (arg === "--json") {
-      flags.json = "true";
-    } else {
-      positional.push(arg);
-    }
-  }
-
-  return { flags, positional };
 }
 
 function getProxyUrl(): string | undefined {
@@ -256,9 +215,18 @@ const docxToText: CustomCommand = {
       try {
         const data = await resolveVfsPath(ctx, filePath);
         const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({
-          arrayBuffer: data.buffer as ArrayBuffer,
-        });
+        const ab = data.buffer.slice(
+          data.byteOffset,
+          data.byteOffset + data.byteLength,
+        );
+        // mammoth's browser build accepts arrayBuffer, Node build accepts buffer
+        const options: Record<string, unknown> = { arrayBuffer: ab };
+        if (typeof Buffer !== "undefined") {
+          options.buffer = Buffer.from(ab);
+        }
+        const result = await mammoth.extractRawText(
+          options as unknown as Parameters<typeof mammoth.extractRawText>[0],
+        );
 
         await writeVfsOutput(ctx, outFile, result.value);
 

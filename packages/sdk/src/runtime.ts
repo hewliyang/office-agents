@@ -627,6 +627,7 @@ export class AgentRuntime {
         },
         uploads: uploadNames.map((name) => ({ name, size: 0 })),
       });
+      await this.refreshNameMap();
     } catch (err) {
       console.error("[Runtime] Failed to switch session:", err);
     }
@@ -740,6 +741,7 @@ export class AgentRuntime {
         },
         uploads: uploadNames.map((name) => ({ name, size: 0 })),
       });
+      await this.refreshNameMap();
     } catch (err) {
       console.error("[Runtime] Failed to load session:", err);
     }
@@ -845,6 +847,18 @@ export class AgentRuntime {
 
   getName(id: number): string | undefined {
     return this.state.nameMap[id];
+  }
+
+  private async refreshNameMap() {
+    if (!this.adapter.getDocumentMetadata) return;
+    try {
+      const meta = await this.adapter.getDocumentMetadata();
+      if (meta?.nameMap) {
+        this.update({ nameMap: meta.nameMap });
+      }
+    } catch (err) {
+      console.error("[Runtime] Failed to refresh nameMap:", err);
+    }
   }
 
   dispose() {

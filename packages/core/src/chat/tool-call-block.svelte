@@ -106,7 +106,7 @@
   {#if isExpanded}
     <div class="border-t border-(--chat-border)">
       {#if ToolExtras}
-        <div class="px-2 py-1 text-[10px] bg-(--chat-warning-bg) text-(--chat-warning) flex items-center gap-1 flex-wrap">
+        <div class="px-2 py-1 text-[10px] bg-(--chat-warning-bg) text-(--chat-warning) flex items-center gap-1 flex-wrap not-has-[*]:hidden">
           <ToolExtras toolName={part.name} result={part.result} expanded={true} />
         </div>
       {/if}
