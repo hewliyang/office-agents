@@ -1,6 +1,6 @@
 import type { AppAdapter } from "@office-agents/core";
 import { getOrCreateDocumentId } from "@office-agents/core";
-import { SelectionIndicator } from "./components/selection-indicator";
+import SelectionIndicator from "./components/selection-indicator.svelte";
 import pptApiDts from "./docs/powerpoint-officejs-api.d.ts?raw";
 import { buildPowerPointSystemPrompt } from "./system-prompt";
 import { PPT_TOOLS } from "./tools";

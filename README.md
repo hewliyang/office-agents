@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/50f3ba42-4daa-49d8-b31e-bae9be6e225b
 | Package                                              | Description                                                                          |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | [`@office-agents/sdk`](./packages/sdk)               | Headless SDK — agent runtime, tools, storage, VFS, skills, OAuth, web search         |
-| [`@office-agents/core`](./packages/core)             | Chat UI (React) — re-exports SDK + chat components, settings, sessions               |
+| [`@office-agents/core`](./packages/core)             | Chat UI (Svelte 5) — re-exports SDK + chat components, settings, sessions            |
 | [`@office-agents/bridge`](./packages/bridge)         | Local HTTPS/WebSocket RPC bridge + CLI for inspecting a live Office add-in runtime   |
 | [`@office-agents/excel`](./packages/excel)           | Excel Add-in — spreadsheet tools, Office.js wrappers, system prompt                  |
 | [`@office-agents/powerpoint`](./packages/powerpoint) | PowerPoint Add-in — slide/OOXML tools, Office.js wrappers, system prompt             |

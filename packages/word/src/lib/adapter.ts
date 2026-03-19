@@ -1,7 +1,7 @@
 import type { AppAdapter } from "@office-agents/core";
 import { getOrCreateDocumentId } from "@office-agents/core";
-import { SelectionIndicator } from "./components/selection-indicator";
-import { TrackChangesIndicator } from "./components/track-changes-indicator";
+import SelectionIndicator from "./components/selection-indicator.svelte";
+import TrackChangesIndicator from "./components/track-changes-indicator.svelte";
 import wordApiFullDts from "./docs/word-officejs-api.d.ts?raw";
 import wordApiOnlineDts from "./docs/word-officejs-api-online.d.ts?raw";
 import { buildWordSystemPrompt } from "./system-prompt";

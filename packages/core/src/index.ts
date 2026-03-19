@@ -123,8 +123,7 @@ export {
 export type {
   AppAdapter,
   ChatTab,
-  LinkProps,
   ToolExtrasProps,
 } from "./chat";
-export { ChatInterface, ChatProvider, useChat } from "./chat";
-export { ErrorBoundary } from "./chat/error-boundary";
+export { ChatInterface, FilesPanel, getChatContext } from "./chat";
+export { default as ErrorBoundary } from "./chat/error-boundary.svelte";
