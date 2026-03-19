@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Svelte migration** — Ported `@office-agents/core` chat UI layer from React to Svelte 5.
+
 ## [0.0.3] - 2026-03-15
 
 ### Features

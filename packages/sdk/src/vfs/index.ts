@@ -9,8 +9,8 @@
 
 import { Bash, type CustomCommand, InMemoryFs } from "just-bash/browser";
 
-export { getSharedCustomCommands } from "./custom-commands";
 export { parseFlags, parsePageRanges } from "./command-utils";
+export { getSharedCustomCommands } from "./custom-commands";
 
 let fs: InMemoryFs | null = null;
 let bash: Bash | null = null;
