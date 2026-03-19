@@ -57,6 +57,7 @@
     }
   },
   "devDependencies": {
-    "@types/office-js": "^1.0.377"
+    "@types/office-js": "^1.0.377",
+    "fake-indexeddb": "^6.2.2"
   }
 }
