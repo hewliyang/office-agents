@@ -219,10 +219,16 @@ const docxToText: CustomCommand = {
           data.byteOffset,
           data.byteOffset + data.byteLength,
         );
-        // mammoth's browser build accepts arrayBuffer, Node build accepts buffer
-        const options: Record<string, unknown> = { arrayBuffer: ab };
-        if (typeof Buffer !== "undefined") {
-          options.buffer = Buffer.from(ab);
+        const bufferCtor = (
+          globalThis as typeof globalThis & {
+            Buffer?: { from(input: ArrayBuffer): unknown };
+          }
+        ).Buffer;
+        const options: Record<string, unknown> = {
+          arrayBuffer: ab,
+        };
+        if (bufferCtor) {
+          options.buffer = bufferCtor.from(ab);
         }
         const result = await mammoth.extractRawText(
           options as unknown as Parameters<typeof mammoth.extractRawText>[0],
