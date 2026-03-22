@@ -3,7 +3,11 @@ export type {
   MessagePart,
   ToolCallStatus,
 } from "@office-agents/sdk";
-export type { AppAdapter, ToolExtrasProps } from "./app-adapter";
+export type {
+  AppAdapter,
+  CustomCommandsResult,
+  ToolExtrasProps,
+} from "./app-adapter";
 export { default as ChatInterface } from "./chat-interface.svelte";
 export { getChatContext } from "./chat-runtime-context";
 export { default as FilesPanel } from "./files-panel.svelte";

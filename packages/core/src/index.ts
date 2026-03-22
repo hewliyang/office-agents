@@ -49,6 +49,7 @@ export {
   getOrCreateDocumentId,
   getSession,
   getSessionMessageCount,
+  type DescribedCommand,
   getSharedCustomCommands,
   getVfs,
   type ImageSearchOptions,
@@ -123,6 +124,7 @@ export {
 export type {
   AppAdapter,
   ChatTab,
+  CustomCommandsResult,
   ToolExtrasProps,
 } from "./chat";
 export { ChatInterface, FilesPanel, getChatContext } from "./chat";

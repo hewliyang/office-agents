@@ -1,5 +1,8 @@
-import { getSharedCustomCommands } from "@office-agents/core";
-import type { CustomCommand } from "just-bash/browser";
+import {
+  getSharedCustomCommands,
+  type CustomCommandsResult,
+  type DescribedCommand,
+} from "@office-agents/core";
 import { defineCommand } from "just-bash/browser";
 import { safeRun, withSlideZip } from "../pptx/slide-zip";
 
@@ -405,367 +408,392 @@ async function insertImageIntoSlide(params: InsertImageParams): Promise<void> {
   });
 }
 
-const insertImageCmd: CustomCommand = {
-  name: "insert-image",
-  load: async () =>
-    defineCommand("insert-image", async (args, ctx) => {
-      const flags: Record<string, string> = {};
-      const positional: string[] = [];
-      for (const arg of args) {
-        const match = arg.match(/^--(\w+)=(.+)$/);
-        if (match) {
-          flags[match[1]] = match[2];
-        } else {
-          positional.push(arg);
+const insertImageCmd: DescribedCommand = {
+  promptSnippet:
+    "- insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--name=NAME] — Insert a VFS image onto a slide (1-based slide number, default box 360×270 pt at origin, preserves aspect ratio)",
+  command: {
+    name: "insert-image",
+    load: async () =>
+      defineCommand("insert-image", async (args, ctx) => {
+        const flags: Record<string, string> = {};
+        const positional: string[] = [];
+        for (const arg of args) {
+          const match = arg.match(/^--(\w+)=(.+)$/);
+          if (match) {
+            flags[match[1]] = match[2];
+          } else {
+            positional.push(arg);
+          }
         }
-      }
 
-      if (positional.length < 2) {
-        return {
-          stdout: "",
-          stderr:
-            "Usage: insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--name=SHAPE_NAME]\n" +
-            "  file    - Path to image file in VFS (PNG, JPEG, GIF, BMP, SVG, WEBP)\n" +
-            "  slide   - 1-based slide number\n" +
-            "  --x     - Horizontal position from left edge (default: 0)\n" +
-            "  --y     - Vertical position from top edge (default: 0)\n" +
-            "  --width - Image width (default box width: 360pt)\n" +
-            "  --height- Image height (default box height: 270pt)\n" +
-            "  --unit  - Unit: pt (default), in, cm, emu\n" +
-            "  --name  - Shape name (default: image filename)\n",
-          exitCode: 1,
-        };
-      }
+        if (positional.length < 2) {
+          return {
+            stdout: "",
+            stderr:
+              "Usage: insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--name=SHAPE_NAME]\n" +
+              "  file    - Path to image file in VFS (PNG, JPEG, GIF, BMP, SVG, WEBP)\n" +
+              "  slide   - 1-based slide number\n" +
+              "  --x     - Horizontal position from left edge (default: 0)\n" +
+              "  --y     - Vertical position from top edge (default: 0)\n" +
+              "  --width - Image width (default box width: 360pt)\n" +
+              "  --height- Image height (default box height: 270pt)\n" +
+              "  --unit  - Unit: pt (default), in, cm, emu\n" +
+              "  --name  - Shape name (default: image filename)\n",
+            exitCode: 1,
+          };
+        }
 
-      const [filePath, slideArg] = positional;
-      const slideNum = Number.parseInt(slideArg, 10);
-      if (Number.isNaN(slideNum) || slideNum < 1) {
-        return {
-          stdout: "",
-          stderr: "Slide must be a positive number (1-based)",
-          exitCode: 1,
-        };
-      }
-      const slideIndex = slideNum - 1;
+        const [filePath, slideArg] = positional;
+        const slideNum = Number.parseInt(slideArg, 10);
+        if (Number.isNaN(slideNum) || slideNum < 1) {
+          return {
+            stdout: "",
+            stderr: "Slide must be a positive number (1-based)",
+            exitCode: 1,
+          };
+        }
+        const slideIndex = slideNum - 1;
 
-      const unit = flags.unit || "pt";
-      if (!["in", "cm", "pt", "emu"].includes(unit)) {
-        return {
-          stdout: "",
-          stderr: "Unit must be one of: in, cm, pt, emu",
-          exitCode: 1,
-        };
-      }
+        const unit = flags.unit || "pt";
+        if (!["in", "cm", "pt", "emu"].includes(unit)) {
+          return {
+            stdout: "",
+            stderr: "Unit must be one of: in, cm, pt, emu",
+            exitCode: 1,
+          };
+        }
 
-      const x = flags.x ? Number.parseFloat(flags.x) : 0;
-      const y = flags.y ? Number.parseFloat(flags.y) : 0;
-      const width = flags.width ? Number.parseFloat(flags.width) : undefined;
-      const height = flags.height ? Number.parseFloat(flags.height) : undefined;
-      const widthProvided = width !== undefined;
-      const heightProvided = height !== undefined;
+        const x = flags.x ? Number.parseFloat(flags.x) : 0;
+        const y = flags.y ? Number.parseFloat(flags.y) : 0;
+        const width = flags.width ? Number.parseFloat(flags.width) : undefined;
+        const height = flags.height
+          ? Number.parseFloat(flags.height)
+          : undefined;
+        const widthProvided = width !== undefined;
+        const heightProvided = height !== undefined;
 
-      if (
-        [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
-      ) {
-        return {
-          stdout: "",
-          stderr: "x, y, width, height must be valid numbers",
-          exitCode: 1,
-        };
-      }
+        if (
+          [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
+        ) {
+          return {
+            stdout: "",
+            stderr: "x, y, width, height must be valid numbers",
+            exitCode: 1,
+          };
+        }
 
-      try {
-        const data = await resolveVfsPath(ctx, filePath);
-        const { mime, ext } = detectMimeType(filePath, data);
-        const fileName = filePath.split("/").pop() || "image";
-        const shapeName = flags.name || fileName;
-        const intrinsic = await getImageDimensions(data, ext);
-        const resolvedSize = resolveImageSize({
-          intrinsic,
-          requestedWidth: width,
-          requestedHeight: height,
-          widthProvided,
-          heightProvided,
-          defaultWidth: DEFAULT_IMAGE_BOX_PT.width,
-          defaultHeight: DEFAULT_IMAGE_BOX_PT.height,
-        });
+        try {
+          const data = await resolveVfsPath(ctx, filePath);
+          const { mime, ext } = detectMimeType(filePath, data);
+          const fileName = filePath.split("/").pop() || "image";
+          const shapeName = flags.name || fileName;
+          const intrinsic = await getImageDimensions(data, ext);
+          const resolvedSize = resolveImageSize({
+            intrinsic,
+            requestedWidth: width,
+            requestedHeight: height,
+            widthProvided,
+            heightProvided,
+            defaultWidth: DEFAULT_IMAGE_BOX_PT.width,
+            defaultHeight: DEFAULT_IMAGE_BOX_PT.height,
+          });
 
-        await insertImageIntoSlide({
-          slideIndex,
-          data,
-          mime,
-          ext,
-          shapeName,
-          offX: parseUnit(x, unit),
-          offY: parseUnit(y, unit),
-          cx: parseUnit(resolvedSize.width, unit),
-          cy: parseUnit(resolvedSize.height, unit),
-        });
+          await insertImageIntoSlide({
+            slideIndex,
+            data,
+            mime,
+            ext,
+            shapeName,
+            offX: parseUnit(x, unit),
+            offY: parseUnit(y, unit),
+            cx: parseUnit(resolvedSize.width, unit),
+            cy: parseUnit(resolvedSize.height, unit),
+          });
 
-        return {
-          stdout: `Inserted ${fileName} on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}`,
-          stderr: "",
-          exitCode: 0,
-        };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return { stdout: "", stderr: msg, exitCode: 1 };
-      }
-    }),
+          return {
+            stdout: `Inserted ${fileName} on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}`,
+            stderr: "",
+            exitCode: 0,
+          };
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return { stdout: "", stderr: msg, exitCode: 1 };
+        }
+      }),
+  },
 };
 
 const ICONIFY_API = "https://api.iconify.design";
 
-const searchIconsCmd: CustomCommand = {
-  name: "search-icons",
-  load: async () =>
-    defineCommand("search-icons", async (args) => {
-      const flags: Record<string, string> = {};
-      const positional: string[] = [];
-      for (const arg of args) {
-        const match = arg.match(/^--(\w+)=(.+)$/);
-        if (match) {
-          flags[match[1]] = match[2];
-        } else {
-          positional.push(arg);
-        }
-      }
-
-      const query = positional.join(" ");
-      if (!query) {
-        return {
-          stdout: "",
-          stderr:
-            "Usage: search-icons <query> [--limit=N] [--prefix=ICON_SET] [--prefixes=SET1,SET2]\n" +
-            "  query      - Search term (e.g. 'warning', 'chart', 'home')\n" +
-            "  --limit    - Max results (default: 32, min: 32, max: 999)\n" +
-            "  --prefix   - Limit to one icon set (e.g. 'mdi', 'fluent')\n" +
-            "  --prefixes - Comma-separated icon set prefixes (e.g. 'mdi,fluent,tabler')\n",
-          exitCode: 1,
-        };
-      }
-
-      try {
-        const limit = flags.limit
-          ? Math.max(32, Math.min(999, Number.parseInt(flags.limit, 10)))
-          : 32;
-        const params = new URLSearchParams({
-          query,
-          limit: String(limit),
-        });
-        if (flags.prefix) params.set("prefix", flags.prefix);
-        if (flags.prefixes) params.set("prefixes", flags.prefixes);
-
-        const res = await fetch(`${ICONIFY_API}/search?${params}`);
-        if (!res.ok) {
-          throw new Error(`Iconify API error: ${res.status} ${res.statusText}`);
+const searchIconsCmd: DescribedCommand = {
+  promptSnippet:
+    "- search-icons <query> [--limit=N] [--prefix=ICON_SET] [--prefixes=SET1,SET2] — Search 200k+ vector icons from Iconify (Material, Fluent, Phosphor, Heroicons, Tabler, FontAwesome, etc.)",
+  command: {
+    name: "search-icons",
+    load: async () =>
+      defineCommand("search-icons", async (args) => {
+        const flags: Record<string, string> = {};
+        const positional: string[] = [];
+        for (const arg of args) {
+          const match = arg.match(/^--(\w+)=(.+)$/);
+          if (match) {
+            flags[match[1]] = match[2];
+          } else {
+            positional.push(arg);
+          }
         }
 
-        const data: {
-          icons: string[];
-          total: number;
-          limit: number;
-          start: number;
-          collections: Record<
-            string,
-            {
-              name: string;
-              author?: { name: string };
-              license?: { title: string };
-              palette?: boolean;
-            }
-          >;
-        } = await res.json();
-
-        if (data.icons.length === 0) {
+        const query = positional.join(" ");
+        if (!query) {
           return {
-            stdout: "No icons found for that query.",
-            stderr: "",
-            exitCode: 0,
+            stdout: "",
+            stderr:
+              "Usage: search-icons <query> [--limit=N] [--prefix=ICON_SET] [--prefixes=SET1,SET2]\n" +
+              "  query      - Search term (e.g. 'warning', 'chart', 'home')\n" +
+              "  --limit    - Max results (default: 32, min: 32, max: 999)\n" +
+              "  --prefix   - Limit to one icon set (e.g. 'mdi', 'fluent')\n" +
+              "  --prefixes - Comma-separated icon set prefixes (e.g. 'mdi,fluent,tabler')\n",
+            exitCode: 1,
           };
         }
 
-        const lines: string[] = [];
-        lines.push(
-          `Found ${data.total} icon(s) (showing ${data.icons.length}):\n`,
-        );
+        try {
+          const limit = flags.limit
+            ? Math.max(32, Math.min(999, Number.parseInt(flags.limit, 10)))
+            : 32;
+          const params = new URLSearchParams({
+            query,
+            limit: String(limit),
+          });
+          if (flags.prefix) params.set("prefix", flags.prefix);
+          if (flags.prefixes) params.set("prefixes", flags.prefixes);
 
-        for (const iconId of data.icons) {
-          const [prefix] = iconId.split(":");
-          const col = data.collections[prefix];
-          const setInfo = col ? ` [${col.name}]` : "";
-          lines.push(`  ${iconId}${setInfo}`);
-        }
-
-        if (Object.keys(data.collections).length > 0) {
-          lines.push("\nIcon sets in results:");
-          for (const [prefix, info] of Object.entries(data.collections)) {
-            const author = info.author ? ` by ${info.author.name}` : "";
-            const license = info.license ? ` (${info.license.title})` : "";
-            const palette = info.palette ? ", multi-color" : ", mono";
-            lines.push(
-              `  ${prefix}: ${info.name}${author}${license}${palette}`,
-            );
-          }
-        }
-
-        lines.push(
-          "\nUse insert-icon to place an icon on a slide:",
-          "  insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--color=#HEX]",
-        );
-
-        return { stdout: lines.join("\n"), stderr: "", exitCode: 0 };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return { stdout: "", stderr: msg, exitCode: 1 };
-      }
-    }),
-};
-
-const insertIconCmd: CustomCommand = {
-  name: "insert-icon",
-  load: async () =>
-    defineCommand("insert-icon", async (args) => {
-      const flags: Record<string, string> = {};
-      const positional: string[] = [];
-      for (const arg of args) {
-        const match = arg.match(/^--(\w+)=(.+)$/);
-        if (match) {
-          flags[match[1]] = match[2];
-        } else {
-          positional.push(arg);
-        }
-      }
-
-      if (positional.length < 2) {
-        return {
-          stdout: "",
-          stderr:
-            "Usage: insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--color=#HEX] [--name=SHAPE_NAME]\n" +
-            "  icon_id  - Icon ID from search-icons (e.g. 'mdi:alert', 'fluent:warning-24-filled')\n" +
-            "  slide    - 1-based slide number\n" +
-            "  --x      - Horizontal position from left edge (default: 0)\n" +
-            "  --y      - Vertical position from top edge (default: 0)\n" +
-            "  --width  - Icon width (default box width: 72pt)\n" +
-            "  --height - Icon height (default box height: 72pt)\n" +
-            "  --unit   - Unit: pt (default), in, cm, emu\n" +
-            "  --color  - Icon color as hex (e.g. '#FF5733'). Only works on mono icons.\n" +
-            "  --name   - Shape name (default: icon ID)\n",
-          exitCode: 1,
-        };
-      }
-
-      const [iconId, slideArg] = positional;
-      const slideNum = Number.parseInt(slideArg, 10);
-      if (Number.isNaN(slideNum) || slideNum < 1) {
-        return {
-          stdout: "",
-          stderr: "Slide must be a positive number (1-based)",
-          exitCode: 1,
-        };
-      }
-
-      const parts = iconId.split(":");
-      if (parts.length !== 2) {
-        return {
-          stdout: "",
-          stderr:
-            'Icon ID must be in "prefix:name" format (e.g. "mdi:alert"). Use search-icons to find icons.',
-          exitCode: 1,
-        };
-      }
-
-      const unit = flags.unit || "pt";
-      if (!["in", "cm", "pt", "emu"].includes(unit)) {
-        return {
-          stdout: "",
-          stderr: "Unit must be one of: in, cm, pt, emu",
-          exitCode: 1,
-        };
-      }
-
-      const x = flags.x ? Number.parseFloat(flags.x) : 0;
-      const y = flags.y ? Number.parseFloat(flags.y) : 0;
-      const width = flags.width ? Number.parseFloat(flags.width) : undefined;
-      const height = flags.height ? Number.parseFloat(flags.height) : undefined;
-      const widthProvided = width !== undefined;
-      const heightProvided = height !== undefined;
-
-      if (
-        [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
-      ) {
-        return {
-          stdout: "",
-          stderr: "x, y, width, height must be valid numbers",
-          exitCode: 1,
-        };
-      }
-
-      try {
-        const [prefix, name] = parts;
-        const svgUrl = new URL(`${ICONIFY_API}/${prefix}/${name}.svg`);
-        if (flags.color) {
-          svgUrl.searchParams.set("color", flags.color);
-        }
-
-        const res = await fetch(svgUrl.toString());
-        if (!res.ok) {
-          if (res.status === 404) {
+          const res = await fetch(`${ICONIFY_API}/search?${params}`);
+          if (!res.ok) {
             throw new Error(
-              `Icon "${iconId}" not found. Use search-icons to find valid icon IDs.`,
+              `Iconify API error: ${res.status} ${res.statusText}`,
             );
           }
-          throw new Error(
-            `Failed to fetch icon: ${res.status} ${res.statusText}`,
+
+          const data: {
+            icons: string[];
+            total: number;
+            limit: number;
+            start: number;
+            collections: Record<
+              string,
+              {
+                name: string;
+                author?: { name: string };
+                license?: { title: string };
+                palette?: boolean;
+              }
+            >;
+          } = await res.json();
+
+          if (data.icons.length === 0) {
+            return {
+              stdout: "No icons found for that query.",
+              stderr: "",
+              exitCode: 0,
+            };
+          }
+
+          const lines: string[] = [];
+          lines.push(
+            `Found ${data.total} icon(s) (showing ${data.icons.length}):\n`,
           );
+
+          for (const iconId of data.icons) {
+            const [prefix] = iconId.split(":");
+            const col = data.collections[prefix];
+            const setInfo = col ? ` [${col.name}]` : "";
+            lines.push(`  ${iconId}${setInfo}`);
+          }
+
+          if (Object.keys(data.collections).length > 0) {
+            lines.push("\nIcon sets in results:");
+            for (const [prefix, info] of Object.entries(data.collections)) {
+              const author = info.author ? ` by ${info.author.name}` : "";
+              const license = info.license ? ` (${info.license.title})` : "";
+              const palette = info.palette ? ", multi-color" : ", mono";
+              lines.push(
+                `  ${prefix}: ${info.name}${author}${license}${palette}`,
+              );
+            }
+          }
+
+          lines.push(
+            "\nUse insert-icon to place an icon on a slide:",
+            "  insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--color=#HEX]",
+          );
+
+          return { stdout: lines.join("\n"), stderr: "", exitCode: 0 };
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return { stdout: "", stderr: msg, exitCode: 1 };
         }
-
-        const svgText = await res.text();
-        const svgData = new TextEncoder().encode(svgText);
-        const shapeName = flags.name || iconId;
-        const mediaCount = Date.now();
-        const intrinsic = await getImageDimensions(svgData, "svg");
-        const resolvedSize = resolveImageSize({
-          intrinsic,
-          requestedWidth: width,
-          requestedHeight: height,
-          widthProvided,
-          heightProvided,
-          defaultWidth: DEFAULT_ICON_BOX_PT.width,
-          defaultHeight: DEFAULT_ICON_BOX_PT.height,
-        });
-
-        await insertImageIntoSlide({
-          slideIndex: slideNum - 1,
-          data: svgData,
-          mime: "image/svg+xml",
-          ext: "svg",
-          shapeName,
-          offX: parseUnit(x, unit),
-          offY: parseUnit(y, unit),
-          cx: parseUnit(resolvedSize.width, unit),
-          cy: parseUnit(resolvedSize.height, unit),
-          mediaPrefix: `icon_${mediaCount}`,
-        });
-
-        const colorInfo = flags.color ? ` (color: ${flags.color})` : "";
-        return {
-          stdout: `Inserted icon "${iconId}" on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}${colorInfo}`,
-          stderr: "",
-          exitCode: 0,
-        };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return { stdout: "", stderr: msg, exitCode: 1 };
-      }
-    }),
+      }),
+  },
 };
 
-export function getCustomCommands(): CustomCommand[] {
-  return [
-    ...getSharedCustomCommands({ includeImageSearch: true }),
+const insertIconCmd: DescribedCommand = {
+  promptSnippet:
+    "- insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--color=#HEX] [--name=NAME] — Insert a vector icon onto a slide as SVG with PNG fallback (default box 72×72 pt, preserves aspect ratio)",
+  command: {
+    name: "insert-icon",
+    load: async () =>
+      defineCommand("insert-icon", async (args) => {
+        const flags: Record<string, string> = {};
+        const positional: string[] = [];
+        for (const arg of args) {
+          const match = arg.match(/^--(\w+)=(.+)$/);
+          if (match) {
+            flags[match[1]] = match[2];
+          } else {
+            positional.push(arg);
+          }
+        }
+
+        if (positional.length < 2) {
+          return {
+            stdout: "",
+            stderr:
+              "Usage: insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--color=#HEX] [--name=SHAPE_NAME]\n" +
+              "  icon_id  - Icon ID from search-icons (e.g. 'mdi:alert', 'fluent:warning-24-filled')\n" +
+              "  slide    - 1-based slide number\n" +
+              "  --x      - Horizontal position from left edge (default: 0)\n" +
+              "  --y      - Vertical position from top edge (default: 0)\n" +
+              "  --width  - Icon width (default box width: 72pt)\n" +
+              "  --height - Icon height (default box height: 72pt)\n" +
+              "  --unit   - Unit: pt (default), in, cm, emu\n" +
+              "  --color  - Icon color as hex (e.g. '#FF5733'). Only works on mono icons.\n" +
+              "  --name   - Shape name (default: icon ID)\n",
+            exitCode: 1,
+          };
+        }
+
+        const [iconId, slideArg] = positional;
+        const slideNum = Number.parseInt(slideArg, 10);
+        if (Number.isNaN(slideNum) || slideNum < 1) {
+          return {
+            stdout: "",
+            stderr: "Slide must be a positive number (1-based)",
+            exitCode: 1,
+          };
+        }
+
+        const parts = iconId.split(":");
+        if (parts.length !== 2) {
+          return {
+            stdout: "",
+            stderr:
+              'Icon ID must be in "prefix:name" format (e.g. "mdi:alert"). Use search-icons to find icons.',
+            exitCode: 1,
+          };
+        }
+
+        const unit = flags.unit || "pt";
+        if (!["in", "cm", "pt", "emu"].includes(unit)) {
+          return {
+            stdout: "",
+            stderr: "Unit must be one of: in, cm, pt, emu",
+            exitCode: 1,
+          };
+        }
+
+        const x = flags.x ? Number.parseFloat(flags.x) : 0;
+        const y = flags.y ? Number.parseFloat(flags.y) : 0;
+        const width = flags.width ? Number.parseFloat(flags.width) : undefined;
+        const height = flags.height
+          ? Number.parseFloat(flags.height)
+          : undefined;
+        const widthProvided = width !== undefined;
+        const heightProvided = height !== undefined;
+
+        if (
+          [x, y, width, height].some((v) => v !== undefined && Number.isNaN(v))
+        ) {
+          return {
+            stdout: "",
+            stderr: "x, y, width, height must be valid numbers",
+            exitCode: 1,
+          };
+        }
+
+        try {
+          const [prefix, name] = parts;
+          const svgUrl = new URL(`${ICONIFY_API}/${prefix}/${name}.svg`);
+          if (flags.color) {
+            svgUrl.searchParams.set("color", flags.color);
+          }
+
+          const res = await fetch(svgUrl.toString());
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw new Error(
+                `Icon "${iconId}" not found. Use search-icons to find valid icon IDs.`,
+              );
+            }
+            throw new Error(
+              `Failed to fetch icon: ${res.status} ${res.statusText}`,
+            );
+          }
+
+          const svgText = await res.text();
+          const svgData = new TextEncoder().encode(svgText);
+          const shapeName = flags.name || iconId;
+          const mediaCount = Date.now();
+          const intrinsic = await getImageDimensions(svgData, "svg");
+          const resolvedSize = resolveImageSize({
+            intrinsic,
+            requestedWidth: width,
+            requestedHeight: height,
+            widthProvided,
+            heightProvided,
+            defaultWidth: DEFAULT_ICON_BOX_PT.width,
+            defaultHeight: DEFAULT_ICON_BOX_PT.height,
+          });
+
+          await insertImageIntoSlide({
+            slideIndex: slideNum - 1,
+            data: svgData,
+            mime: "image/svg+xml",
+            ext: "svg",
+            shapeName,
+            offX: parseUnit(x, unit),
+            offY: parseUnit(y, unit),
+            cx: parseUnit(resolvedSize.width, unit),
+            cy: parseUnit(resolvedSize.height, unit),
+            mediaPrefix: `icon_${mediaCount}`,
+          });
+
+          const colorInfo = flags.color ? ` (color: ${flags.color})` : "";
+          return {
+            stdout: `Inserted icon "${iconId}" on slide ${slideNum} at (${x}, ${y}) size ${resolvedSize.width}×${resolvedSize.height} ${unit}${colorInfo}`,
+            stderr: "",
+            exitCode: 0,
+          };
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return { stdout: "", stderr: msg, exitCode: 1 };
+        }
+      }),
+  },
+};
+
+export function getCustomCommands(): CustomCommandsResult {
+  const local: DescribedCommand[] = [
     insertImageCmd,
     searchIconsCmd,
     insertIconCmd,
   ];
+  const shared = getSharedCustomCommands({ includeImageSearch: true });
+  return {
+    commands: [...shared.commands, ...local.map((d) => d.command)],
+    promptSnippets: [
+      ...shared.promptSnippets,
+      ...local.map((d) => d.promptSnippet),
+    ],
+  };
 }

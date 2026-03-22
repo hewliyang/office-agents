@@ -1,6 +1,12 @@
-import { getSharedCustomCommands } from "@office-agents/core";
-import type { CustomCommand } from "just-bash/browser";
+import {
+  getSharedCustomCommands,
+  type CustomCommandsResult,
+} from "@office-agents/core";
 
-export function getCustomCommands(): CustomCommand[] {
-  return [...getSharedCustomCommands({ includeImageSearch: true })];
+export function getCustomCommands(): CustomCommandsResult {
+  const shared = getSharedCustomCommands({ includeImageSearch: true });
+  return {
+    commands: [...shared.commands],
+    promptSnippets: [...shared.promptSnippets],
+  };
 }

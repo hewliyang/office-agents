@@ -103,6 +103,8 @@ export {
   getBash,
   getFileType,
   getSharedCustomCommands,
+  type CustomCommandsResult,
+  type DescribedCommand,
   getVfs,
   listUploads,
   readFile,

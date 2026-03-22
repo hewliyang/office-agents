@@ -1,5 +1,8 @@
-import { getSharedCustomCommands } from "@office-agents/core";
-import type { Command, CustomCommand } from "just-bash/browser";
+import {
+  getSharedCustomCommands,
+  type CustomCommandsResult,
+  type DescribedCommand,
+} from "@office-agents/core";
 import { defineCommand } from "just-bash/browser";
 import type { CellInput } from "../excel/api";
 import { getRangeAsCsv, getWorksheetById, setCellRange } from "../excel/api";
@@ -21,73 +24,77 @@ export {
   rgbToHex,
 } from "./command-utils";
 
-const csvToSheet: Command = defineCommand("csv-to-sheet", async (args, ctx) => {
-  // Extract flags
-  const force = args.includes("--force") || args.includes("-f");
-  const positional = args.filter((a) => a !== "--force" && a !== "-f");
+const csvToSheet: DescribedCommand = {
+  promptSnippet:
+    "- csv-to-sheet <file> <sheetId> [startCell] [--force] — Import CSV from VFS into spreadsheet. Auto-detects types.\n    Fails if target cells already have data. Use --force to overwrite (confirm with user first).",
+  command: defineCommand("csv-to-sheet", async (args, ctx) => {
+    // Extract flags
+    const force = args.includes("--force") || args.includes("-f");
+    const positional = args.filter((a) => a !== "--force" && a !== "-f");
 
-  if (positional.length < 2) {
-    return {
-      stdout: "",
-      stderr:
-        "Usage: csv-to-sheet <file> <sheetId> [startCell] [--force]\n  file      - Path to CSV file in VFS\n  sheetId   - Target sheet ID (number)\n  startCell - Top-left cell, default A1\n  --force   - Overwrite existing cell data\n",
-      exitCode: 1,
-    };
-  }
-
-  const [filePath, sheetIdStr, startCell = "A1"] = positional;
-  const sheetId = Number.parseInt(sheetIdStr, 10);
-  if (Number.isNaN(sheetId)) {
-    return {
-      stdout: "",
-      stderr: `Invalid sheetId: ${sheetIdStr}`,
-      exitCode: 1,
-    };
-  }
-
-  const upperStartCell = startCell.toUpperCase();
-  if (!/^[A-Z]+\d+$/.test(upperStartCell)) {
-    return {
-      stdout: "",
-      stderr: `Invalid start cell: ${startCell}`,
-      exitCode: 1,
-    };
-  }
-
-  try {
-    const resolvedPath = filePath.startsWith("/")
-      ? filePath
-      : `${ctx.cwd}/${filePath}`;
-    const content = await ctx.fs.readFile(resolvedPath);
-    const rows = parseCsv(content);
-
-    if (rows.length === 0) {
-      return { stdout: "", stderr: "CSV file is empty", exitCode: 1 };
+    if (positional.length < 2) {
+      return {
+        stdout: "",
+        stderr:
+          "Usage: csv-to-sheet <file> <sheetId> [startCell] [--force]\n  file      - Path to CSV file in VFS\n  sheetId   - Target sheet ID (number)\n  startCell - Top-left cell, default A1\n  --force   - Overwrite existing cell data\n",
+        exitCode: 1,
+      };
     }
 
-    // Normalize column count (pad shorter rows)
-    const maxCols = Math.max(...rows.map((r) => r.length));
-    const cells: CellInput[][] = rows.map((row) => {
-      const padded = [...row];
-      while (padded.length < maxCols) padded.push("");
-      return padded.map((raw) => ({ value: coerceValue(raw) }));
-    });
+    const [filePath, sheetIdStr, startCell = "A1"] = positional;
+    const sheetId = Number.parseInt(sheetIdStr, 10);
+    if (Number.isNaN(sheetId)) {
+      return {
+        stdout: "",
+        stderr: `Invalid sheetId: ${sheetIdStr}`,
+        exitCode: 1,
+      };
+    }
 
-    const rangeAddr = buildRangeAddress(upperStartCell, rows.length, maxCols);
-    const result = await setCellRange(sheetId, rangeAddr, cells, {
-      allowOverwrite: force,
-    });
+    const upperStartCell = startCell.toUpperCase();
+    if (!/^[A-Z]+\d+$/.test(upperStartCell)) {
+      return {
+        stdout: "",
+        stderr: `Invalid start cell: ${startCell}`,
+        exitCode: 1,
+      };
+    }
 
-    return {
-      stdout: `Imported ${rows.length} rows × ${maxCols} columns into sheet ${sheetId} at ${upperStartCell} (${rangeAddr}). ${result.cellsWritten} cells written.`,
-      stderr: "",
-      exitCode: 0,
-    };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { stdout: "", stderr: msg, exitCode: 1 };
-  }
-});
+    try {
+      const resolvedPath = filePath.startsWith("/")
+        ? filePath
+        : `${ctx.cwd}/${filePath}`;
+      const content = await ctx.fs.readFile(resolvedPath);
+      const rows = parseCsv(content);
+
+      if (rows.length === 0) {
+        return { stdout: "", stderr: "CSV file is empty", exitCode: 1 };
+      }
+
+      // Normalize column count (pad shorter rows)
+      const maxCols = Math.max(...rows.map((r) => r.length));
+      const cells: CellInput[][] = rows.map((row) => {
+        const padded = [...row];
+        while (padded.length < maxCols) padded.push("");
+        return padded.map((raw) => ({ value: coerceValue(raw) }));
+      });
+
+      const rangeAddr = buildRangeAddress(upperStartCell, rows.length, maxCols);
+      const result = await setCellRange(sheetId, rangeAddr, cells, {
+        allowOverwrite: force,
+      });
+
+      return {
+        stdout: `Imported ${rows.length} rows × ${maxCols} columns into sheet ${sheetId} at ${upperStartCell} (${rangeAddr}). ${result.cellsWritten} cells written.`,
+        stderr: "",
+        exitCode: 0,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { stdout: "", stderr: msg, exitCode: 1 };
+    }
+  }),
+};
 
 function looksLikeRange(s: string): boolean {
   return /^[A-Z]+\d+(:[A-Z]+\d+)?$/i.test(s);
@@ -105,93 +112,99 @@ async function getUsedRangeAddress(sheetId: number): Promise<string | null> {
   });
 }
 
-const sheetToCsv: Command = defineCommand("sheet-to-csv", async (args, ctx) => {
-  if (args.length < 1) {
-    return {
-      stdout: "",
-      stderr:
-        "Usage: sheet-to-csv <sheetId> [range] [file]\n  sheetId - Source sheet ID (number)\n  range   - Cell range, e.g. A1:D100 (optional, defaults to used range)\n  file    - Output file path (optional, prints to stdout if omitted)\n",
-      exitCode: 1,
-    };
-  }
-
-  // Parse args: sheetId is always first, then optionally a range, then optionally a file
-  const sheetIdStr = args[0];
-  const sheetId = Number.parseInt(sheetIdStr, 10);
-  if (Number.isNaN(sheetId)) {
-    return {
-      stdout: "",
-      stderr: `Invalid sheetId: ${sheetIdStr}`,
-      exitCode: 1,
-    };
-  }
-
-  let rangeAddr: string | undefined;
-  let outFile: string | undefined;
-
-  if (args.length === 2) {
-    // Could be range or file
-    if (looksLikeRange(args[1])) {
-      rangeAddr = args[1];
-    } else {
-      outFile = args[1];
-    }
-  } else if (args.length >= 3) {
-    rangeAddr = args[1];
-    outFile = args[2];
-  }
-
-  try {
-    // Auto-detect used range if none specified
-    if (!rangeAddr) {
-      const usedAddr = await getUsedRangeAddress(sheetId);
-      if (!usedAddr) {
-        return {
-          stdout: "",
-          stderr: "Sheet is empty (no used range)",
-          exitCode: 1,
-        };
-      }
-      rangeAddr = usedAddr;
-    }
-
-    const result = await getRangeAsCsv(sheetId, rangeAddr, { maxRows: 50000 });
-
-    if (outFile) {
-      const resolvedPath = outFile.startsWith("/")
-        ? outFile
-        : `${ctx.cwd}/${outFile}`;
-      // Ensure parent directory exists
-      const dir = resolvedPath.substring(0, resolvedPath.lastIndexOf("/"));
-      if (dir && dir !== "/") {
-        try {
-          await ctx.fs.mkdir(dir, { recursive: true });
-        } catch {
-          // directory may already exist
-        }
-      }
-      await ctx.fs.writeFile(resolvedPath, result.csv);
-      const moreNote = result.hasMore
-        ? " (truncated, more rows available)"
-        : "";
+const sheetToCsv: DescribedCommand = {
+  promptSnippet:
+    "- sheet-to-csv <sheetId> [range] [file] — Export range to CSV. Defaults to full used range if no range given. Prints to stdout if no file given (pipeable).",
+  command: defineCommand("sheet-to-csv", async (args, ctx) => {
+    if (args.length < 1) {
       return {
-        stdout: `Exported ${result.rowCount} rows × ${result.columnCount} columns from "${result.sheetName}" to ${outFile}${moreNote}`,
-        stderr: "",
-        exitCode: 0,
+        stdout: "",
+        stderr:
+          "Usage: sheet-to-csv <sheetId> [range] [file]\n  sheetId - Source sheet ID (number)\n  range   - Cell range, e.g. A1:D100 (optional, defaults to used range)\n  file    - Output file path (optional, prints to stdout if omitted)\n",
+        exitCode: 1,
       };
     }
 
-    // No file → stdout (pipeable)
-    return {
-      stdout: result.csv,
-      stderr: "",
-      exitCode: 0,
-    };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { stdout: "", stderr: msg, exitCode: 1 };
-  }
-});
+    // Parse args: sheetId is always first, then optionally a range, then optionally a file
+    const sheetIdStr = args[0];
+    const sheetId = Number.parseInt(sheetIdStr, 10);
+    if (Number.isNaN(sheetId)) {
+      return {
+        stdout: "",
+        stderr: `Invalid sheetId: ${sheetIdStr}`,
+        exitCode: 1,
+      };
+    }
+
+    let rangeAddr: string | undefined;
+    let outFile: string | undefined;
+
+    if (args.length === 2) {
+      // Could be range or file
+      if (looksLikeRange(args[1])) {
+        rangeAddr = args[1];
+      } else {
+        outFile = args[1];
+      }
+    } else if (args.length >= 3) {
+      rangeAddr = args[1];
+      outFile = args[2];
+    }
+
+    try {
+      // Auto-detect used range if none specified
+      if (!rangeAddr) {
+        const usedAddr = await getUsedRangeAddress(sheetId);
+        if (!usedAddr) {
+          return {
+            stdout: "",
+            stderr: "Sheet is empty (no used range)",
+            exitCode: 1,
+          };
+        }
+        rangeAddr = usedAddr;
+      }
+
+      const result = await getRangeAsCsv(sheetId, rangeAddr, {
+        maxRows: 50000,
+      });
+
+      if (outFile) {
+        const resolvedPath = outFile.startsWith("/")
+          ? outFile
+          : `${ctx.cwd}/${outFile}`;
+        // Ensure parent directory exists
+        const dir = resolvedPath.substring(0, resolvedPath.lastIndexOf("/"));
+        if (dir && dir !== "/") {
+          try {
+            await ctx.fs.mkdir(dir, { recursive: true });
+          } catch {
+            // directory may already exist
+          }
+        }
+        await ctx.fs.writeFile(resolvedPath, result.csv);
+        const moreNote = result.hasMore
+          ? " (truncated, more rows available)"
+          : "";
+        return {
+          stdout: `Exported ${result.rowCount} rows × ${result.columnCount} columns from "${result.sheetName}" to ${outFile}${moreNote}`,
+          stderr: "",
+          exitCode: 0,
+        };
+      }
+
+      // No file → stdout (pipeable)
+      return {
+        stdout: result.csv,
+        stderr: "",
+        exitCode: 0,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { stdout: "", stderr: msg, exitCode: 1 };
+    }
+  }),
+};
 
 async function resolveVfsPath(
   ctx: { cwd: string; fs: { readFileBuffer(p: string): Promise<Uint8Array> } },
@@ -306,9 +319,10 @@ async function paintPixelsToSheet(
   });
 }
 
-const imageToSheet: Command = defineCommand(
-  "image-to-sheet",
-  async (args, ctx) => {
+const imageToSheet: DescribedCommand = {
+  promptSnippet:
+    "- image-to-sheet <file> <width> <height> <sheetId> [startCell] [--cell-size=N] — Render an image as pixel art in Excel. Downsamples to target size and paints cell backgrounds. Cell size in points (default: 6). Max 200×200. Example: image-to-sheet uploads/logo.png 64 64 1 A1 --cell-size=4",
+  command: defineCommand("image-to-sheet", async (args, ctx) => {
     const positional = args.filter((a) => !a.startsWith("--"));
     const cellSizeArg = args.find((a) => a.startsWith("--cell-size="));
     const cellSize = cellSizeArg
@@ -418,9 +432,17 @@ const imageToSheet: Command = defineCommand(
       const msg = error instanceof Error ? error.message : String(error);
       return { stdout: "", stderr: msg, exitCode: 1 };
     }
-  },
-);
+  }),
+};
 
-export function getCustomCommands(): CustomCommand[] {
-  return [csvToSheet, sheetToCsv, imageToSheet, ...getSharedCustomCommands()];
+export function getCustomCommands(): CustomCommandsResult {
+  const local: DescribedCommand[] = [csvToSheet, sheetToCsv, imageToSheet];
+  const shared = getSharedCustomCommands();
+  return {
+    commands: [...local.map((d) => d.command), ...shared.commands],
+    promptSnippets: [
+      ...local.map((d) => d.promptSnippet),
+      ...shared.promptSnippets,
+    ],
+  };
 }
