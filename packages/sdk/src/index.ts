@@ -96,6 +96,12 @@ export {
   truncateHead,
   truncateTail,
 } from "./truncate";
+// Browser
+export {
+  onBrowseSessionChange,
+  getBrowseSessionState,
+  type BrowseSessionEvent,
+} from "@office-agents/browser";
 // VFS
 export {
   type CustomCommandsResult,

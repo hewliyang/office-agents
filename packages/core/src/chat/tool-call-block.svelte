@@ -40,7 +40,7 @@
     return { codeBlocks, rest };
   }
 
-  function cleanResult(raw: string): string {
+  function cleanResult(raw: string): { text: string; lang: string } {
     try {
       const parsed = JSON.parse(raw);
       if (typeof parsed === "object" && parsed !== null) {
@@ -50,11 +50,11 @@
             delete cleaned[key];
           }
         }
-        return JSON.stringify(cleaned, null, 2);
+        return { text: JSON.stringify(cleaned, null, 2), lang: "json" };
       }
-      return JSON.stringify(parsed, null, 2);
+      return { text: JSON.stringify(parsed, null, 2), lang: "json" };
     } catch {
-      return raw;
+      return { text: raw, lang: "text" };
     }
   }
 
@@ -64,7 +64,7 @@
   const ToolExtras = $derived(chat.adapter.ToolExtras);
   const split = $derived(splitArgs(part.args));
   const hasRestArgs = $derived(Object.keys(split.rest).length > 0);
-  const resultText = $derived(part.result ? cleanResult(part.result) : undefined);
+  const resultData = $derived(part.result ? cleanResult(part.result) : undefined);
   const isStreaming = $derived(
     part.status === "pending" || part.status === "running",
   );
@@ -153,14 +153,14 @@
         </div>
       {/if}
 
-      {#if resultText}
+      {#if resultData}
         <div class="px-2 py-1.5 text-xs border-t border-(--chat-border)">
           <div class="text-(--chat-text-muted) text-[10px] uppercase mb-1">
             {part.status === "error" ? "error" : "result"}
           </div>
           <div class={`max-h-40 overflow-y-auto ${part.status === "error" ? "[&_code]:text-red-400!" : ""}`}>
             <MarkdownContent
-              text={`\`\`\`json\n${resultText}\n\`\`\``}
+              text={`\`\`\`${resultData.lang}\n${resultData.text}\n\`\`\``}
               isStreaming={isStreaming}
             />
           </div>

@@ -18,6 +18,7 @@
   import type { AppAdapter } from "./app-adapter";
   import { ChatController } from "./chat-controller";
   import { setChatContext } from "./chat-runtime-context";
+  import BrowserViewer from "./browser-viewer.svelte";
   import ChatInput from "./chat-input.svelte";
   import FilesPanel from "./files-panel.svelte";
   import MessageList from "./message-list.svelte";
@@ -337,6 +338,7 @@
   </div>
 
   {#if activeTab === "chat"}
+    <BrowserViewer />
     <MessageList />
     {#if SelectionIndicator}
       <SelectionIndicator />

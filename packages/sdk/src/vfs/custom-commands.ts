@@ -6,6 +6,12 @@ import { loadWebConfig } from "../web/config";
 import { fetchWeb } from "../web/fetch";
 import { searchImages, searchWeb } from "../web/search";
 import { parseFlags, parsePageRanges } from "./command-utils";
+import {
+  executeBrowseCommand,
+  configureBrowseCommand,
+  BrowserbaseProvider,
+  BrowserUseProvider,
+} from "@office-agents/browser";
 
 interface CommandFs {
   mkdir(path: string, options: { recursive: boolean }): Promise<void>;
@@ -583,6 +589,37 @@ function collect(described: DescribedCommand[]): CustomCommandsResult {
   };
 }
 
+function getBrowserProvider(): BrowserbaseProvider | BrowserUseProvider | null {
+  const webConfig = loadWebConfig();
+
+  const browserUseApiKey = webConfig.apiKeys?.browserUse;
+  if (browserUseApiKey) {
+    return new BrowserUseProvider({ apiKey: browserUseApiKey });
+  }
+
+  const browserbaseApiKey = webConfig.apiKeys?.browserbase;
+  const browserbaseProjectId = webConfig.apiKeys?.browserbaseProjectId;
+  if (browserbaseApiKey && browserbaseProjectId) {
+    return new BrowserbaseProvider({
+      apiKey: browserbaseApiKey,
+      projectId: browserbaseProjectId,
+    });
+  }
+
+  return null;
+}
+
+const browseCmd: Command = defineCommand("browse", async (args, ctx) => {
+  configureBrowseCommand({
+    getProvider: () => getBrowserProvider(),
+    writeFile: ctx
+      ? (path, data) => writeVfsOutput(ctx, path, data).then(() => {})
+      : undefined,
+  });
+
+  return executeBrowseCommand(args);
+});
+
 export function getSharedCustomCommands(
   options: SharedCustomCommandOptions = {},
 ): CustomCommandsResult {
@@ -593,6 +630,7 @@ export function getSharedCustomCommands(
     xlsxToCsv,
     webSearchCmd,
     webFetchCmd,
+    browseCmd,
   ];
 
   if (options.includeImageSearch) {
