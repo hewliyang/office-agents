@@ -45,9 +45,33 @@ export interface BrowseCommandConfig {
 }
 
 let config: BrowseCommandConfig | null = null;
+let lifecycleCleanupInstalled = false;
+
+async function closeAndClearActiveBrowser(): Promise<void> {
+  const browser = activeBrowser;
+  if (!browser) return;
+  activeBrowser = null;
+  emitSessionChange();
+  await browser.close().catch(() => {});
+}
+
+function installLifecycleCleanup(): void {
+  if (lifecycleCleanupInstalled || typeof window === "undefined") {
+    return;
+  }
+  lifecycleCleanupInstalled = true;
+
+  const cleanup = () => {
+    void closeAndClearActiveBrowser();
+  };
+
+  window.addEventListener("pagehide", cleanup);
+  window.addEventListener("beforeunload", cleanup);
+}
 
 export function configureBrowseCommand(cfg: BrowseCommandConfig): void {
   config = cfg;
+  installLifecycleCleanup();
 }
 
 function getProvider(): BrowserProvider {
@@ -263,10 +287,7 @@ export async function executeBrowseCommand(
             exitCode: 1,
           };
         }
-        if (activeBrowser) {
-          await activeBrowser.close().catch(() => {});
-          activeBrowser = null;
-        }
+        await closeAndClearActiveBrowser();
         activeBrowser = await Browser.launch({ provider: getProvider() });
         emitSessionChange();
         await activeBrowser.page.goto(url, {
@@ -308,11 +329,7 @@ export async function executeBrowseCommand(
       }
 
       case "stop": {
-        if (activeBrowser) {
-          await activeBrowser.close();
-          activeBrowser = null;
-          emitSessionChange();
-        }
+        await closeAndClearActiveBrowser();
         return {
           stdout: output({ stopped: true }, json),
           stderr: "",
@@ -1120,6 +1137,15 @@ export async function executeBrowseCommand(
     const msg = error instanceof Error ? error.message : String(error);
     return { stdout: "", stderr: msg, exitCode: 1 };
   }
+}
+
+export async function closeActiveBrowser(): Promise<void> {
+  await closeAndClearActiveBrowser();
+}
+
+export function disposeBrowseCommand(): void {
+  config = null;
+  void closeAndClearActiveBrowser();
 }
 
 export function getActiveBrowser(): Browser | null {

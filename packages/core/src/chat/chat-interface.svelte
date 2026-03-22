@@ -193,7 +193,7 @@
 
             {#if sessionDropdownOpen}
               <div
-                class="absolute top-full left-0 mt-1 w-56 bg-(--chat-bg) border border-(--chat-border) rounded shadow-lg z-50 overflow-hidden"
+                class="absolute top-full left-0 mt-1 w-56 bg-(--chat-bg) border border-(--chat-border) rounded shadow-lg z-[60] overflow-hidden"
               >
                 <button
                   type="button"

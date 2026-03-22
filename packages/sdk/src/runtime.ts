@@ -1,3 +1,4 @@
+import { disposeBrowseCommand } from "@office-agents/browser";
 import {
   Agent,
   type AgentEvent,
@@ -875,5 +876,6 @@ export class AgentRuntime {
   dispose() {
     this.agent?.abort();
     this.listeners.clear();
+    disposeBrowseCommand();
   }
 }

@@ -1,5 +1,4 @@
-import type { Protocol } from "devtools-protocol/types/protocol.js";
-import { CdpClient } from "./cdp.js";
+import { CdpClient, type CdpClientOptions } from "./cdp.js";
 import { Page } from "./page.js";
 import type {
   BrowserProvider,
@@ -10,10 +9,12 @@ import type {
 export interface BrowserOptions {
   provider: BrowserProvider;
   sessionOptions?: CreateSessionOptions;
+  cdpOptions?: CdpClientOptions;
 }
 
 export interface ConnectOptions {
   cdpUrl: string;
+  cdpOptions?: CdpClientOptions;
 }
 
 export interface BrowserTab {
@@ -40,7 +41,10 @@ export class Browser {
       options.sessionOptions,
     );
     try {
-      browser.cdp = await CdpClient.connect(browser.session.cdpUrl);
+      browser.cdp = await CdpClient.connect(
+        browser.session.cdpUrl,
+        options.cdpOptions,
+      );
       browser._page = await Page.attachToFirstPage(browser.cdp);
       browser.currentTargetId = browser._page.targetId ?? null;
     } catch (err) {
@@ -52,7 +56,7 @@ export class Browser {
 
   static async connect(options: ConnectOptions): Promise<Browser> {
     const browser = new Browser();
-    browser.cdp = await CdpClient.connect(options.cdpUrl);
+    browser.cdp = await CdpClient.connect(options.cdpUrl, options.cdpOptions);
     browser._page = await Page.attachToFirstPage(browser.cdp);
     browser.currentTargetId = browser._page.targetId ?? null;
     return browser;
@@ -81,12 +85,14 @@ export class Browser {
   }
 
   private async attachToTarget(targetId: string): Promise<Page> {
-    if (this._page?.sessionId) {
+    const previousSessionId = this._page?.sessionId;
+    if (previousSessionId) {
       await this.cdpClient
         .send("Target.detachFromTarget", {
-          sessionId: this._page.sessionId,
+          sessionId: previousSessionId,
         })
         .catch(() => {});
+      this.cdpClient.releaseSession(previousSessionId, "detached by client");
     }
     const page = await Page.attachToTarget(this.cdpClient, targetId);
     this._page = page;

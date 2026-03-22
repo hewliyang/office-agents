@@ -49,9 +49,7 @@ export class BrowserUseProvider implements BrowserProvider {
     if (this.config.proxyCountryCode) {
       body.proxy_country_code = this.config.proxyCountryCode;
     }
-    if (this.config.timeoutMinutes) {
-      body.timeout = this.config.timeoutMinutes;
-    }
+    body.timeout = this.config.timeoutMinutes ?? 5;
 
     const response = await fetch(`${baseUrl}/api/v2/browsers`, {
       method: "POST",

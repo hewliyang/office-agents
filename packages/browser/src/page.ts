@@ -104,6 +104,10 @@ export class Page {
     return this.session instanceof CdpSession ? this.session.id : undefined;
   }
 
+  get cdpSession(): CdpSession | undefined {
+    return this.session instanceof CdpSession ? this.session : undefined;
+  }
+
   async enableDomains(): Promise<void> {
     await Promise.all([
       this.session.send("Page.enable"),

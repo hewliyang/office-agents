@@ -1,4 +1,10 @@
-export { CdpClient, CdpSession, type CdpEventHandler } from "./cdp.js";
+export {
+  CdpClient,
+  CdpSession,
+  type CdpEventHandler,
+  type CdpClientOptions,
+  type CdpProtocolApi,
+} from "./cdp.js";
 export {
   Page,
   type NavigateResult,
@@ -33,6 +39,8 @@ export {
 export {
   executeBrowseCommand,
   configureBrowseCommand,
+  closeActiveBrowser,
+  disposeBrowseCommand,
   getActiveBrowser,
   onBrowseSessionChange,
   getBrowseSessionState,

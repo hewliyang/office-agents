@@ -10,6 +10,7 @@ export interface BrowserbaseConfig {
   apiKey: string;
   projectId: string;
   baseUrl?: string;
+  timeoutSeconds?: number;
 }
 
 interface BrowserbaseSessionBody {
@@ -19,6 +20,7 @@ interface BrowserbaseSessionBody {
     context?: { id: string };
   };
   proxies?: boolean;
+  timeout?: number;
 }
 
 interface BrowserbaseSessionResponse {
@@ -41,6 +43,7 @@ export class BrowserbaseProvider implements BrowserProvider {
       browserSettings: {
         viewport: options?.viewport ?? { width: 1288, height: 711 },
       },
+      timeout: this.config.timeoutSeconds ?? 300,
     };
 
     if (options?.contextId) {

@@ -1,16 +1,18 @@
 <script lang="ts">
   import {
+    closeActiveBrowser,
     onBrowseSessionChange,
     getBrowseSessionState,
     type BrowseSessionEvent,
   } from "@office-agents/sdk";
-  import { Globe, X, Minimize2, Maximize2 } from "lucide-svelte";
+  import { Globe, X, Minimize2, Maximize2, Square } from "lucide-svelte";
   import { onDestroy } from "svelte";
 
   const initialState = getBrowseSessionState();
   let session = $state<BrowseSessionEvent>(initialState);
   let visible = $state(initialState.active && !!initialState.liveUrl);
   let expanded = $state(true);
+  let stopping = $state(false);
 
   const unsub = onBrowseSessionChange((event) => {
     session = event;
@@ -19,13 +21,19 @@
       expanded = true;
     } else {
       visible = false;
+      stopping = false;
     }
   });
 
   onDestroy(unsub);
 
-  function close() {
+  function hidePreview() {
     visible = false;
+  }
+
+  async function stopBrowser() {
+    stopping = true;
+    await closeActiveBrowser();
   }
 
   function toggleExpand() {
@@ -61,9 +69,22 @@
           {/if}
         </button>
         <button
-          onclick={close}
+          onclick={stopBrowser}
+          disabled={stopping}
+          class={[
+            "p-1.5 transition-colors",
+            stopping
+              ? "text-(--chat-text-muted) opacity-50 cursor-not-allowed"
+              : "text-(--chat-text-muted) hover:text-red-500",
+          ]}
+          data-tooltip="Stop browser session"
+        >
+          <Square size={10} />
+        </button>
+        <button
+          onclick={hidePreview}
           class="p-1.5 text-(--chat-text-muted) hover:text-(--chat-text-primary) transition-colors"
-          data-tooltip="Close"
+          data-tooltip="Hide preview"
         >
           <X size={12} />
         </button>

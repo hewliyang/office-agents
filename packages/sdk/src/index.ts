@@ -3,6 +3,8 @@
 // Browser
 export {
   type BrowseSessionEvent,
+  closeActiveBrowser,
+  disposeBrowseCommand,
   getBrowseSessionState,
   onBrowseSessionChange,
 } from "@office-agents/browser";
