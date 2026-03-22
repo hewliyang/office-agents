@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Co-located command prompt snippets** — Custom VFS commands now carry their own `promptSnippet` via the new `DescribedCommand` type, instead of duplicating descriptions in system prompts. `getSharedCustomCommands()` returns `CustomCommandsResult { commands, promptSnippets }`, and `RuntimeAdapter.buildSystemPrompt` receives the filtered snippets as a second argument. Commands with `isAvailable` returning `false` are excluded from prompt snippets but still registered.
+
 ## [0.0.6] - 2026-03-19
 
 ### Fixes

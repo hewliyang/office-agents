@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Co-located command prompt snippets** — System prompt assembles command docs dynamically from `DescribedCommand` snippets instead of hard-coding them.
+
 ## [0.0.3] - 2026-03-19
 
 ### Changed
