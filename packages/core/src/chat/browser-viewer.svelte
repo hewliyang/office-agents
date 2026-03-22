@@ -36,31 +36,46 @@
 </script>
 
 {#if visible && hasLiveUrl}
-  <div class="browser-viewer" class:collapsed={!expanded}>
-    <div class="browser-header">
-      <div class="browser-title">
+  <div
+    class="relative z-50 flex flex-col shrink-0 overflow-hidden border-b border-(--chat-border) bg-(--chat-bg)"
+  >
+    <div
+      class="flex items-center justify-between px-2 border-b border-(--chat-border) bg-(--chat-bg) shrink-0"
+    >
+      <div
+        class="flex items-center gap-1.5 px-1 py-2 text-xs uppercase tracking-wider text-(--chat-accent)"
+      >
         <Globe size={12} />
         <span>Live Browser</span>
       </div>
-      <div class="browser-controls">
-        <button onclick={toggleExpand} class="control-btn" data-tooltip={expanded ? "Minimize" : "Maximize"}>
+      <div class="flex items-center gap-0.5">
+        <button
+          onclick={toggleExpand}
+          class="p-1.5 text-(--chat-text-muted) hover:text-(--chat-text-primary) transition-colors"
+          data-tooltip={expanded ? "Minimize" : "Maximize"}
+        >
           {#if expanded}
             <Minimize2 size={12} />
           {:else}
             <Maximize2 size={12} />
           {/if}
         </button>
-        <button onclick={close} class="control-btn" data-tooltip="Close">
+        <button
+          onclick={close}
+          class="p-1.5 text-(--chat-text-muted) hover:text-(--chat-text-primary) transition-colors"
+          data-tooltip="Close"
+        >
           <X size={12} />
         </button>
       </div>
     </div>
     {#if expanded}
-      <div class="browser-frame">
+      <div class="h-[280px] bg-black overflow-hidden">
         <iframe
           src={session.liveUrl}
           title="Live browser session"
           sandbox="allow-scripts allow-same-origin allow-popups"
+          class="w-[200%] h-[200%] border-none origin-top-left scale-50"
         ></iframe>
       </div>
     {/if}
@@ -68,106 +83,14 @@
 {/if}
 
 {#if hasLiveUrl && !visible}
-  <button class="browser-fab" onclick={() => { visible = true; expanded = true; }}>
+  <button
+    class="relative z-50 flex items-center gap-1.5 w-full px-3 py-2 border-b border-(--chat-border) bg-(--chat-bg) text-(--chat-accent) text-xs uppercase tracking-wider shrink-0 transition-colors hover:bg-(--chat-bg-secondary) cursor-pointer"
+    onclick={() => {
+      visible = true;
+      expanded = true;
+    }}
+  >
     <Globe size={12} />
     <span>Show live browser</span>
   </button>
 {/if}
-
-<style>
-  .browser-viewer {
-    position: relative;
-    z-index: 50;
-    overflow: hidden;
-    border-bottom: 1px solid var(--chat-border);
-    background: var(--chat-bg-primary);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-  }
-
-  .browser-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    background: var(--chat-bg-secondary);
-    border-bottom: 1px solid var(--chat-border);
-    cursor: default;
-    flex-shrink: 0;
-  }
-
-  .browser-title {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--chat-text-secondary);
-    font-family: var(--chat-font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .browser-controls {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .control-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border: none;
-    background: transparent;
-    color: var(--chat-text-muted);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .control-btn:hover {
-    background: var(--chat-bg-tertiary);
-    color: var(--chat-text-primary);
-  }
-
-  .browser-frame {
-    height: 280px;
-    background: #000;
-    overflow: hidden;
-  }
-
-  .browser-frame iframe {
-    width: 200%;
-    height: 200%;
-    border: none;
-    transform: scale(0.5);
-    transform-origin: top left;
-  }
-
-  .browser-fab {
-    position: relative;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border: none;
-    border-bottom: 1px solid var(--chat-border);
-    background: var(--chat-bg-secondary);
-    color: var(--chat-accent);
-    cursor: pointer;
-    font-size: 11px;
-    font-family: var(--chat-font-mono);
-    flex-shrink: 0;
-    width: 100%;
-    transition: background 0.15s;
-  }
-
-  .browser-fab:hover {
-    background: var(--chat-bg-tertiary);
-  }
-</style>
