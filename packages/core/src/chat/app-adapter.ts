@@ -1,7 +1,12 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { SkillMeta, StorageNamespace } from "@office-agents/sdk";
-import type { CustomCommand } from "just-bash/browser";
+import type {
+  CustomCommandsResult,
+  SkillMeta,
+  StorageNamespace,
+} from "@office-agents/sdk";
 import type { Component } from "svelte";
+
+export type { CustomCommandsResult };
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -21,7 +26,7 @@ export interface ToolExtrasProps {
 
 export interface AppAdapter {
   tools: AgentTool[];
-  buildSystemPrompt: (skills: SkillMeta[]) => string;
+  buildSystemPrompt: (skills: SkillMeta[], commandSnippets: string[]) => string;
   getDocumentId: () => Promise<string>;
   getDocumentMetadata?: () => Promise<{
     metadata: object;
@@ -34,7 +39,7 @@ export interface AppAdapter {
   appName?: string;
   emptyStateMessage?: string;
   staticFiles?: Record<string, string>;
-  customCommands?: () => CustomCommand[];
+  customCommands?: () => CustomCommandsResult;
   hasImageSearch?: boolean;
   showFollowModeToggle?: boolean;
   handleLinkClick?: (

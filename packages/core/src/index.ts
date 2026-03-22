@@ -25,6 +25,7 @@ export {
   // Truncation
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  type DescribedCommand,
   defineTool,
   // VFS
   deleteFile,
@@ -123,6 +124,7 @@ export {
 export type {
   AppAdapter,
   ChatTab,
+  CustomCommandsResult,
   ToolExtrasProps,
 } from "./chat";
 export { ChatInterface, FilesPanel, getChatContext } from "./chat";

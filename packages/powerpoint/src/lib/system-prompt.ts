@@ -1,6 +1,10 @@
 import { buildSkillsPromptSection, type SkillMeta } from "@office-agents/core";
 
-export function buildPowerPointSystemPrompt(skills: SkillMeta[]): string {
+export function buildPowerPointSystemPrompt(
+  skills: SkillMeta[],
+  commandSnippets: string[] = [],
+): string {
+  const customCommandsList = commandSnippets.map((s) => `  ${s}`).join("\n");
   return `You are an AI assistant integrated into Microsoft PowerPoint with direct Office.js access.
 
 ## Office.js API Reference
@@ -14,16 +18,7 @@ FILES & SHELL:
 - read: Read uploaded files (images, CSV, text). Images are returned for visual analysis.
 - bash: Execute bash commands in a sandboxed virtual filesystem. User uploads are in /home/user/uploads/.
   Custom commands available in bash:
-  - pdf-to-text <file> <outfile> — Extract text from a PDF
-  - pdf-to-images <file> <outdir> [--scale=N] [--pages=1,3,5-8] — Render PDF pages as PNG images
-  - docx-to-text <file> <outfile> — Extract text from a DOCX file
-  - xlsx-to-csv <file> <outfile> [sheet] — Convert XLSX/XLS/ODS to CSV
-  - web-search <query> [--max=N] [--json] — Search the web
-  - web-fetch <url> <outfile> — Fetch a URL (HTML→Markdown, binary→raw file)
-  - image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.
-  - insert-image <file> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--name=NAME] — Insert a VFS image onto a slide (1-based slide number, default box 360×270 pt at origin, preserves aspect ratio)
-  - search-icons <query> [--limit=N] [--prefix=ICON_SET] [--prefixes=SET1,SET2] — Search 200k+ vector icons from Iconify (Material, Fluent, Phosphor, Heroicons, Tabler, FontAwesome, etc.)
-  - insert-icon <icon_id> <slide> [--x=N] [--y=N] [--width=N] [--height=N] [--unit=pt|in|cm|emu] [--color=#HEX] [--name=NAME] — Insert a vector icon onto a slide as SVG with PNG fallback (default box 72×72 pt, preserves aspect ratio)
+${customCommandsList}
 
 POWERPOINT READ:
 - screenshot_slide: Take a screenshot of a slide for visual verification

@@ -1,6 +1,10 @@
 import { buildSkillsPromptSection, type SkillMeta } from "@office-agents/core";
 
-export function buildWordSystemPrompt(skills: SkillMeta[]): string {
+export function buildWordSystemPrompt(
+  skills: SkillMeta[],
+  commandSnippets: string[] = [],
+): string {
+  const customCommandsList = commandSnippets.map((s) => `  ${s}`).join("\n");
   return `You are an AI assistant integrated into Microsoft Word with direct Office.js access.
 
 ## Office.js API Reference
@@ -17,13 +21,7 @@ FILES & SHELL:
 - read: Read uploaded files (images, CSV, text). Images are returned for visual analysis.
 - bash: Execute bash commands in a sandboxed virtual filesystem. User uploads are in /home/user/uploads/.
   Custom commands available in bash:
-  - pdf-to-text <file> <outfile> — Extract text from a PDF
-  - pdf-to-images <file> <outdir> [--scale=N] [--pages=1,3,5-8] — Render PDF pages as PNG images
-  - docx-to-text <file> <outfile> — Extract text from a DOCX file
-  - xlsx-to-csv <file> <outfile> [sheet] — Convert XLSX/XLS/ODS to CSV
-  - web-search <query> [--max=N] [--json] — Search the web
-  - web-fetch <url> <outfile> — Fetch a URL (HTML→Markdown, binary→raw file)
-  - image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.
+${customCommandsList}
 
 WORD READ:
 - screenshot_document: Visual screenshot of document pages (desktop/Mac only — not available in Word Online). Exports to PDF then renders as images.

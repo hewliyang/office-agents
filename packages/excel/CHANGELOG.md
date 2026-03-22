@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Co-located command prompt snippets** — Excel-specific VFS commands (`csv-to-sheet`, `sheet-to-csv`, `image-to-sheet`) now use `DescribedCommand` with co-located `promptSnippet`. System prompt assembles command docs dynamically from snippets instead of hard-coding them.
+
 ## [0.2.8] - 2026-03-19
 
 ### Changed

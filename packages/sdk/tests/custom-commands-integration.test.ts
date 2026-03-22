@@ -32,7 +32,7 @@ const hasPromiseTry = typeof Promise.try === "function";
 
 describe("shared custom commands (integration)", () => {
   beforeEach(() => {
-    setCustomCommands(() => getSharedCustomCommands());
+    setCustomCommands(() => getSharedCustomCommands().commands);
     resetVfs();
   });
 

@@ -98,6 +98,8 @@ export {
 } from "./truncate";
 // VFS
 export {
+  type CustomCommandsResult,
+  type DescribedCommand,
   deleteFile,
   fileExists,
   getBash,

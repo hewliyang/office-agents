@@ -13,7 +13,6 @@ import {
   type Model,
   streamSimple,
 } from "@mariozechner/pi-ai";
-import type { CustomCommand } from "just-bash/browser";
 import {
   agentMessagesToChatMessages,
   type ChatMessage,
@@ -54,6 +53,7 @@ import {
   saveVfsFiles,
 } from "./storage";
 import {
+  type CustomCommandsResult,
   deleteFile,
   listUploads,
   resetVfs,
@@ -66,7 +66,7 @@ import {
 
 export interface RuntimeAdapter {
   tools: AgentTool[];
-  buildSystemPrompt: (skills: SkillMeta[]) => string;
+  buildSystemPrompt: (skills: SkillMeta[], commandSnippets: string[]) => string;
   getDocumentId: () => Promise<string>;
   getDocumentMetadata?: () => Promise<{
     metadata: object;
@@ -75,7 +75,7 @@ export interface RuntimeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
   staticFiles?: Record<string, string>;
-  customCommands?: () => CustomCommand[];
+  customCommands?: () => CustomCommandsResult;
 }
 
 export interface UploadedFile {
@@ -117,6 +117,7 @@ export class AgentRuntime {
   private sessionLoaded = false;
   private followMode = true;
   private skills: SkillMeta[] = [];
+  private commandSnippets: string[] = [];
   private adapter: RuntimeAdapter;
   private listeners: Set<StateListener> = new Set();
   private state: RuntimeState;
@@ -441,7 +442,14 @@ export class AgentRuntime {
       this.agent.abort();
     }
 
-    const systemPrompt = this.adapter.buildSystemPrompt(this.skills);
+    if (this.adapter.customCommands) {
+      this.commandSnippets = this.adapter.customCommands().promptSnippets;
+    }
+
+    const systemPrompt = this.adapter.buildSystemPrompt(
+      this.skills,
+      this.commandSnippets,
+    );
 
     const agent = new Agent({
       initialState: {
@@ -695,7 +703,10 @@ export class AgentRuntime {
       setStaticFiles(this.adapter.staticFiles);
     }
     if (this.adapter.customCommands) {
-      setCustomCommands(this.adapter.customCommands);
+      const customCmds = this.adapter.customCommands;
+      const result = customCmds();
+      this.commandSnippets = result.promptSnippets;
+      setCustomCommands(() => result.commands);
     }
 
     try {
