@@ -1,5 +1,11 @@
 // Runtime
 
+// Browser
+export {
+  type BrowseSessionEvent,
+  getBrowseSessionState,
+  onBrowseSessionChange,
+} from "@office-agents/browser";
 export type { ImageResizeOptions, ResizedImage } from "./image-resize";
 export { resizeImage } from "./image-resize";
 // Lockdown
@@ -96,12 +102,6 @@ export {
   truncateHead,
   truncateTail,
 } from "./truncate";
-// Browser
-export {
-  onBrowseSessionChange,
-  getBrowseSessionState,
-  type BrowseSessionEvent,
-} from "@office-agents/browser";
 // VFS
 export {
   type CustomCommandsResult,
