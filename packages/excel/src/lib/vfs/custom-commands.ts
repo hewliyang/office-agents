@@ -1,7 +1,7 @@
 import {
-  getSharedCustomCommands,
   type CustomCommandsResult,
   type DescribedCommand,
+  getSharedCustomCommands,
 } from "@office-agents/core";
 import { defineCommand } from "just-bash/browser";
 import type { CellInput } from "../excel/api";

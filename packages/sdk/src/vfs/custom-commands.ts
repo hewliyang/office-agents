@@ -1,4 +1,4 @@
-import type { Command, CustomCommand } from "just-bash/browser";
+import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
 import { loadPdfDocument } from "../pdf";
 import { loadSavedConfig } from "../provider-config";

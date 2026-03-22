@@ -25,6 +25,7 @@ export {
   // Truncation
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  type DescribedCommand,
   defineTool,
   // VFS
   deleteFile,
@@ -49,7 +50,6 @@ export {
   getOrCreateDocumentId,
   getSession,
   getSessionMessageCount,
-  type DescribedCommand,
   getSharedCustomCommands,
   getVfs,
   type ImageSearchOptions,

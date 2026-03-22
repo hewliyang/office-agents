@@ -1,6 +1,6 @@
 import {
-  getSharedCustomCommands,
   type CustomCommandsResult,
+  getSharedCustomCommands,
 } from "@office-agents/core";
 
 export function getCustomCommands(): CustomCommandsResult {
