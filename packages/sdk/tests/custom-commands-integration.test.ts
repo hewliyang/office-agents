@@ -127,6 +127,7 @@ describe("shared custom commands (integration)", () => {
       const result = await run(
         "pdf-to-text /home/user/uploads/test.pdf /home/user/uploads/out.txt",
       );
+      expect(result.stderr, "pdf-to-text stderr").toBe("");
       expect(result.exitCode).toBe(0);
       expect(result.out).toContain("Extracted text from");
       expect(result.out).toContain("page");
