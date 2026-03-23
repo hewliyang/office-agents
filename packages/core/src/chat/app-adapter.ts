@@ -7,6 +7,7 @@ import type {
 } from "@office-agents/sdk";
 
 export type { StorageNamespace };
+
 import type { Component } from "svelte";
 
 export type { CustomCommandsResult };

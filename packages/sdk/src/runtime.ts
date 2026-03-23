@@ -13,7 +13,7 @@ import {
   type Model,
   streamSimple,
 } from "@mariozechner/pi-ai";
-import { AgentContext, type StorageNamespace } from "./context";
+import type { AgentContext, StorageNamespace } from "./context";
 import {
   agentMessagesToChatMessages,
   type ChatMessage,

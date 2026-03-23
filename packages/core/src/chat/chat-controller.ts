@@ -1,6 +1,6 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 import {
-  AgentContext,
+  type AgentContext,
   AgentRuntime,
   type ProviderConfig,
   type RuntimeState,
