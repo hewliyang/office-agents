@@ -64,14 +64,22 @@ export class AgentContext {
     return this._bash;
   }
 
-  setStaticFiles(files: Record<string, string>): void {
+  async setStaticFiles(files: Record<string, string>): Promise<void> {
+    const old = this._staticFiles;
     this._staticFiles = files;
-    this.reset();
+    if (this._fs) {
+      await this.patchVfsFiles(old, files);
+    }
   }
 
-  setSkillFiles(files: Record<string, Uint8Array | string>): void {
+  async setSkillFiles(
+    files: Record<string, Uint8Array | string>,
+  ): Promise<void> {
+    const old = this._skillFiles;
     this._skillFiles = files;
-    this.reset();
+    if (this._fs) {
+      await this.patchVfsFiles(old, files);
+    }
   }
 
   get commandSnippets(): string[] {
@@ -82,11 +90,42 @@ export class AgentContext {
     factory: (ns: StorageNamespace) => CustomCommandsResult,
   ): void {
     this._customCommandsFactory = factory;
-    this.reset();
+    this._bash = null;
   }
 
   reset(): void {
     this._fs = null;
+    this._bash = null;
+  }
+
+  private async patchVfsFiles(
+    oldFiles: Record<string, Uint8Array | string>,
+    newFiles: Record<string, Uint8Array | string>,
+  ): Promise<void> {
+    const fs = this._fs!;
+
+    for (const p of Object.keys(oldFiles)) {
+      if (!(p in newFiles)) {
+        try {
+          await fs.rm(p);
+        } catch {
+          // already gone
+        }
+      }
+    }
+
+    for (const [p, content] of Object.entries(newFiles)) {
+      const dir = p.substring(0, p.lastIndexOf("/"));
+      if (dir && dir !== "/") {
+        try {
+          await fs.mkdir(dir, { recursive: true });
+        } catch {
+          // exists
+        }
+      }
+      await fs.writeFile(p, content);
+    }
+
     this._bash = null;
   }
 

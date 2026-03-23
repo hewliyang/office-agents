@@ -306,6 +306,49 @@ describe("AgentRuntime", () => {
     runtime.dispose();
   });
 
+  it("init applies adapter.staticFiles to context", async () => {
+    const ns = freshNamespace();
+    const ctx = new AgentContext({ namespace: ns });
+
+    const adapter = createAdapter({
+      storageNamespace: ns,
+      staticFiles: {
+        "/home/user/docs/word-api.d.ts": "declare const Word: any;",
+      },
+    });
+
+    expect(await ctx.fileExists("/home/user/docs/word-api.d.ts")).toBe(false);
+
+    const runtime = new AgentRuntime(adapter, ctx);
+    await runtime.init();
+
+    expect(await ctx.fileExists("/home/user/docs/word-api.d.ts")).toBe(true);
+    expect(await ctx.readFile("/home/user/docs/word-api.d.ts")).toBe(
+      "declare const Word: any;",
+    );
+    runtime.dispose();
+  });
+
+  it("init applies adapter.customCommands to context", async () => {
+    const ns = freshNamespace();
+    const ctx = new AgentContext({ namespace: ns });
+    expect(ctx.commandSnippets).toEqual([]);
+
+    const adapter = createAdapter({
+      storageNamespace: ns,
+      customCommands: () => ({
+        commands: [],
+        promptSnippets: ["Use `my-cmd` to do stuff"],
+      }),
+    });
+
+    const runtime = new AgentRuntime(adapter, ctx);
+    await runtime.init();
+
+    expect(ctx.commandSnippets).toEqual(["Use `my-cmd` to do stuff"]);
+    runtime.dispose();
+  });
+
   it("uploadFiles replaces existing upload with same name", async () => {
     const runtime = createRuntime();
     await runtime.init();

@@ -121,7 +121,7 @@ export async function syncSkillsToVfs(
   for (const f of allFiles) {
     initialFiles[`/home/skills/${f.skillName}/${f.path}`] = f.data;
   }
-  ctx.setSkillFiles(initialFiles);
+  await ctx.setSkillFiles(initialFiles);
 }
 
 export function buildSkillsPromptSection(skills: SkillMeta[]): string {

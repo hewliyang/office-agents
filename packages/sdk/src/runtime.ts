@@ -53,6 +53,7 @@ import {
   saveSession,
   saveVfsFiles,
 } from "./storage";
+import type { CustomCommandsResult } from "./vfs/custom-commands";
 
 export interface RuntimeAdapter {
   tools: AgentTool[] | ((ctx: AgentContext) => AgentTool[]);
@@ -65,6 +66,7 @@ export interface RuntimeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
   staticFiles?: Record<string, string>;
+  customCommands?: (ns: StorageNamespace) => CustomCommandsResult;
   storageNamespace?: Partial<StorageNamespace>;
 }
 
@@ -703,6 +705,15 @@ export class AgentRuntime {
     this.sessionLoaded = true;
 
     try {
+      // update staticFiles and customCommands jic any changes
+      // happened between context init (on app mount) vs session init
+      if (this.adapter.staticFiles) {
+        await this.context.setStaticFiles(this.adapter.staticFiles);
+      }
+      if (this.adapter.customCommands) {
+        this.context.setCustomCommands(this.adapter.customCommands);
+      }
+
       const id = await this.adapter.getDocumentId();
       this.documentId = id;
 
