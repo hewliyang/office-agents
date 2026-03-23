@@ -34,8 +34,6 @@ export {
   type TypeResult,
 } from "./page.js";
 export {
-  type BrowserbaseConfig,
-  BrowserbaseProvider,
   type BrowserProvider,
   type BrowserSession,
   type BrowserUseConfig,

@@ -1,5 +1,4 @@
 import {
-  BrowserbaseProvider,
   BrowserUseProvider,
   configureBrowseCommand,
   executeBrowseCommand,
@@ -579,21 +578,12 @@ const imageSearchCmd: DescribedCommand = {
   }),
 };
 
-function getBrowserProvider(): BrowserbaseProvider | BrowserUseProvider | null {
+function getBrowserProvider(): BrowserUseProvider | null {
   const webConfig = loadWebConfig();
 
   const browserUseApiKey = webConfig.apiKeys?.browserUse;
   if (browserUseApiKey) {
     return new BrowserUseProvider({ apiKey: browserUseApiKey });
-  }
-
-  const browserbaseApiKey = webConfig.apiKeys?.browserbase;
-  const browserbaseProjectId = webConfig.apiKeys?.browserbaseProjectId;
-  if (browserbaseApiKey && browserbaseProjectId) {
-    return new BrowserbaseProvider({
-      apiKey: browserbaseApiKey,
-      projectId: browserbaseProjectId,
-    });
   }
 
   return null;
