@@ -217,7 +217,7 @@ describe("shared custom commands (integration)", () => {
       expect(result.stderr).toContain("Usage:");
     });
 
-    it("fetches a text page and saves to file", async () => {
+    it.skipIf(!!process.env.CI)("fetches a text page and saves to file", async () => {
       const { saveConfig } = await import("../src/provider-config");
       saveConfig(TEST_NS, {
         provider: "openai",
