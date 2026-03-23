@@ -54,9 +54,6 @@ function createRuntime(overrides: Partial<RuntimeAdapter> = {}): AgentRuntime {
   const ctx = new AgentContext({
     namespace: adapter.storageNamespace,
     staticFiles: adapter.staticFiles,
-    customCommands: adapter.customCommands
-      ? () => adapter.customCommands!(ctx.namespace).commands
-      : undefined,
   });
   return new AgentRuntime(adapter, ctx);
 }

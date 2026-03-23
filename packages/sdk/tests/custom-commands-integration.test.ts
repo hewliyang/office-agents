@@ -18,9 +18,8 @@ function loadFixture(name: string): Uint8Array {
 }
 
 function setup() {
-  const shared = getSharedCustomCommands({ ns: TEST_NS });
   const ctx = new AgentContext({
-    customCommands: () => shared.commands,
+    customCommands: (ns) => getSharedCustomCommands({ ns }),
   });
   return ctx;
 }

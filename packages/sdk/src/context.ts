@@ -1,4 +1,5 @@
-import { Bash, type CustomCommand, InMemoryFs } from "just-bash/browser";
+import { Bash, InMemoryFs } from "just-bash/browser";
+import type { CustomCommandsResult } from "./vfs/custom-commands";
 
 export interface StorageNamespace {
   dbName: string;
@@ -19,7 +20,7 @@ export interface AgentContextOptions {
   namespace?: Partial<StorageNamespace>;
   staticFiles?: Record<string, string>;
   skillFiles?: Record<string, Uint8Array | string>;
-  customCommands?: () => CustomCommand[];
+  customCommands?: (ns: StorageNamespace) => CustomCommandsResult;
 }
 
 export class AgentContext {
@@ -29,7 +30,9 @@ export class AgentContext {
   private _bash: Bash | null = null;
   private _staticFiles: Record<string, string>;
   private _skillFiles: Record<string, Uint8Array | string>;
-  private _customCommandsFactory: (() => CustomCommand[]) | null;
+  private _customCommandsFactory:
+    | ((ns: StorageNamespace) => CustomCommandsResult)
+    | null;
 
   constructor(opts: AgentContextOptions = {}) {
     this.namespace = { ...NAMESPACE_DEFAULTS, ...opts.namespace };
@@ -54,7 +57,8 @@ export class AgentContext {
       this._bash = new Bash({
         fs: this.vfs,
         cwd: "/home/user",
-        customCommands: this._customCommandsFactory?.() ?? [],
+        customCommands:
+          this._customCommandsFactory?.(this.namespace).commands ?? [],
       });
     }
     return this._bash;
@@ -70,7 +74,13 @@ export class AgentContext {
     this.reset();
   }
 
-  setCustomCommands(factory: () => CustomCommand[]): void {
+  get commandSnippets(): string[] {
+    return this._customCommandsFactory?.(this.namespace).promptSnippets ?? [];
+  }
+
+  setCustomCommands(
+    factory: (ns: StorageNamespace) => CustomCommandsResult,
+  ): void {
     this._customCommandsFactory = factory;
     this.reset();
   }

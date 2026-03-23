@@ -53,7 +53,6 @@ import {
   saveSession,
   saveVfsFiles,
 } from "./storage";
-import type { CustomCommandsResult } from "./vfs";
 
 export interface RuntimeAdapter {
   tools: AgentTool[] | ((ctx: AgentContext) => AgentTool[]);
@@ -66,7 +65,6 @@ export interface RuntimeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
   staticFiles?: Record<string, string>;
-  customCommands?: (ns: StorageNamespace) => CustomCommandsResult;
   storageNamespace?: Partial<StorageNamespace>;
 }
 
@@ -111,7 +109,7 @@ export class AgentRuntime {
   private sessionLoaded = false;
   private followMode = true;
   private skills: SkillMeta[] = [];
-  private commandSnippets: string[] = [];
+
   private adapter: RuntimeAdapter;
   private listeners: Set<StateListener> = new Set();
   private state: RuntimeState;
@@ -448,15 +446,9 @@ export class AgentRuntime {
       this.agent.abort();
     }
 
-    if (this.adapter.customCommands) {
-      this.commandSnippets = this.adapter.customCommands(
-        this.ns,
-      ).promptSnippets;
-    }
-
     const systemPrompt = this.adapter.buildSystemPrompt(
       this.skills,
-      this.commandSnippets,
+      this.context.commandSnippets,
     );
 
     const agent = new Agent({
@@ -709,11 +701,6 @@ export class AgentRuntime {
   async init() {
     if (this.sessionLoaded) return;
     this.sessionLoaded = true;
-
-    if (this.adapter.customCommands) {
-      const result = this.adapter.customCommands(this.ns);
-      this.commandSnippets = result.promptSnippets;
-    }
 
     try {
       const id = await this.adapter.getDocumentId();

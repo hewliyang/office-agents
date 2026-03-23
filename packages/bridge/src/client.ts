@@ -43,7 +43,7 @@ interface BridgeExecutableTool {
 interface BridgeAdapter {
   tools:
     | BridgeExecutableTool[]
-    | ((...args: unknown[]) => BridgeExecutableTool[]);
+    | ((vfs?: BridgeVfsAdapter) => BridgeExecutableTool[]);
   appName?: string;
   appVersion?: string;
   metadataTag?: string;

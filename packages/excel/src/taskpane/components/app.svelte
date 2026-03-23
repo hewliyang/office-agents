@@ -11,9 +11,7 @@
   const ctx = new AgentContext({
     namespace: adapter.storageNamespace,
     staticFiles: adapter.staticFiles,
-    customCommands: adapter.customCommands
-      ? () => adapter.customCommands!(ctx.namespace).commands
-      : undefined,
+    customCommands: adapter.customCommands,
   });
 
   onMount(() => {

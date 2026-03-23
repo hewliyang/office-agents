@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
 import { AgentContext } from "../src/context";
+
+function cmds(...commands: CustomCommand[]) {
+  return () => ({ commands, promptSnippets: [] });
+}
 
 async function run(ctx: AgentContext, cmd: string) {
   const result = await ctx.bash.exec(cmd);
@@ -13,13 +18,13 @@ async function run(ctx: AgentContext, cmd: string) {
 describe("VFS custom commands", () => {
   it("registered custom command is callable from bash", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("greet", async (args) => ({
           stdout: `hello ${args[0] ?? "world"}`,
           stderr: "",
           exitCode: 0,
         })),
-      ],
+      ),
     });
 
     const result = await run(ctx, "greet alice");
@@ -29,7 +34,7 @@ describe("VFS custom commands", () => {
 
   it("custom command can read files from VFS context", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("wordcount", async (args, bashCtx) => {
           try {
             const content = await bashCtx.fs.readFile(
@@ -47,7 +52,7 @@ describe("VFS custom commands", () => {
             };
           }
         }),
-      ],
+      ),
     });
 
     await ctx.writeFile("doc.txt", "one two three four five");
@@ -58,7 +63,7 @@ describe("VFS custom commands", () => {
 
   it("custom command can write files to VFS context", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("generate", async (args, bashCtx) => {
           const outPath = args[0].startsWith("/")
             ? args[0]
@@ -66,7 +71,7 @@ describe("VFS custom commands", () => {
           await bashCtx.fs.writeFile(outPath, "generated content");
           return { stdout: `wrote ${outPath}`, stderr: "", exitCode: 0 };
         }),
-      ],
+      ),
     });
 
     const result = await run(ctx, "generate /home/user/uploads/out.txt");
@@ -77,13 +82,13 @@ describe("VFS custom commands", () => {
 
   it("custom command returning non-zero exit code is treated as error", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("fail", async () => ({
           stdout: "",
           stderr: "something went wrong",
           exitCode: 42,
         })),
-      ],
+      ),
     });
 
     const result = await run(ctx, "fail");
@@ -93,13 +98,13 @@ describe("VFS custom commands", () => {
 
   it("custom command output can be piped to standard commands", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("emit-lines", async () => ({
           stdout: "apple\nbanana\napricot\ncherry\n",
           stderr: "",
           exitCode: 0,
         })),
-      ],
+      ),
     });
 
     const result = await run(ctx, "emit-lines | grep ap");
@@ -112,7 +117,7 @@ describe("VFS custom commands", () => {
 
   it("multiple custom commands can coexist", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("cmd-a", async () => ({
           stdout: "from a",
           stderr: "",
@@ -123,7 +128,7 @@ describe("VFS custom commands", () => {
           stderr: "",
           exitCode: 0,
         })),
-      ],
+      ),
     });
 
     const a = await run(ctx, "cmd-a");
@@ -134,19 +139,19 @@ describe("VFS custom commands", () => {
 
   it("custom commands are reset when VFS is reset", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("ephemeral", async () => ({
           stdout: "hi",
           stderr: "",
           exitCode: 0,
         })),
-      ],
+      ),
     });
 
     const before = await run(ctx, "ephemeral");
     expect(before.exitCode).toBe(0);
 
-    ctx.setCustomCommands(() => []);
+    ctx.setCustomCommands(() => ({ commands: [], promptSnippets: [] }));
     ctx.reset();
 
     const after = await run(ctx, "ephemeral");
@@ -155,7 +160,7 @@ describe("VFS custom commands", () => {
 
   it("writeFile makes files visible to custom commands via ctx.fs", async () => {
     const ctx = new AgentContext({
-      customCommands: () => [
+      customCommands: cmds(
         defineCommand("upper", async (args, bashCtx) => {
           const path = args[0].startsWith("/")
             ? args[0]
@@ -171,7 +176,7 @@ describe("VFS custom commands", () => {
             exitCode: 0,
           };
         }),
-      ],
+      ),
     });
 
     await ctx.writeFile("input.txt", "hello world");
