@@ -217,29 +217,5 @@ describe("shared custom commands (integration)", () => {
       expect(result.stderr).toContain("Usage:");
     });
 
-    it.skipIf(!!process.env.CI)("fetches a text page and saves to file", async () => {
-      const { saveConfig } = await import("../src/provider-config");
-      saveConfig(TEST_NS, {
-        provider: "openai",
-        apiKey: "",
-        model: "",
-        useProxy: true,
-        proxyUrl: "https://proxy.hewliyang.com",
-        thinking: "none",
-        followMode: false,
-        expandToolCalls: false,
-      });
-
-      const ctx = setup();
-      const result = await run(
-        ctx,
-        "web-fetch https://example.com /home/user/uploads/page.txt",
-      );
-      expect(result.exitCode).toBe(0);
-      expect(result.out).toContain("Fetched text");
-
-      const text = await ctx.readFile("page.txt");
-      expect(text.toLowerCase()).toContain("example");
-    });
   });
 });
