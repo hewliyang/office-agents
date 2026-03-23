@@ -2,6 +2,7 @@ import {
   type CustomCommandsResult,
   type DescribedCommand,
   getSharedCustomCommands,
+  type StorageNamespace,
 } from "@office-agents/core";
 import { defineCommand } from "just-bash/browser";
 import type { CellInput } from "../excel/api";
@@ -435,9 +436,9 @@ const imageToSheet: DescribedCommand = {
   }),
 };
 
-export function getCustomCommands(): CustomCommandsResult {
+export function getCustomCommands(ns: StorageNamespace): CustomCommandsResult {
   const local: DescribedCommand[] = [csvToSheet, sheetToCsv, imageToSheet];
-  const shared = getSharedCustomCommands();
+  const shared = getSharedCustomCommands({ ns });
   return {
     commands: [...local.map((d) => d.command), ...shared.commands],
     promptSnippets: [

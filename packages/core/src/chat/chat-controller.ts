@@ -1,7 +1,7 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 import {
+  AgentContext,
   AgentRuntime,
-  configureNamespace,
   type ProviderConfig,
   type RuntimeState,
 } from "@office-agents/sdk";
@@ -9,18 +9,16 @@ import { get, type Writable, writable } from "svelte/store";
 import type { AppAdapter } from "./app-adapter";
 
 export class ChatController {
+  readonly context: AgentContext;
   readonly state: Writable<RuntimeState>;
   adapter: AppAdapter;
   #runtime: AgentRuntime;
   #unsubscribe: (() => void) | null = null;
 
-  constructor(adapter: AppAdapter) {
+  constructor(adapter: AppAdapter, context: AgentContext) {
     this.adapter = adapter;
-    if (adapter.storageNamespace) {
-      configureNamespace(adapter.storageNamespace);
-    }
-
-    this.#runtime = new AgentRuntime(adapter);
+    this.context = context;
+    this.#runtime = new AgentRuntime(adapter, this.context);
     this.state = writable(this.#runtime.getState());
     this.#unsubscribe = this.#runtime.subscribe((next) => this.state.set(next));
     this.#runtime.init();
@@ -36,9 +34,6 @@ export class ChatController {
 
   setAdapter(adapter: AppAdapter) {
     this.adapter = adapter;
-    if (adapter.storageNamespace) {
-      configureNamespace(adapter.storageNamespace);
-    }
     this.#runtime.setAdapter(adapter);
   }
 

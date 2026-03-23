@@ -1,4 +1,4 @@
-import { writeFile } from "@office-agents/core";
+import type { AgentContext } from "@office-agents/core";
 import { Type } from "@sinclair/typebox";
 import { defineTool, toolError, toolSuccess } from "./types";
 
@@ -261,217 +261,225 @@ function extractBodyContent(ooxmlPackage: string): {
   };
 }
 
-export const getOoxmlTool = defineTool({
-  name: "get_ooxml",
-  label: "Get OOXML",
-  description:
-    "Extract the document's OOXML structure and write it to a VFS file for inspection. " +
-    "Returns a summary with body-child indices, types, line numbers, and Office.js collection mappings " +
-    "(paragraphIndex, tableIndex). The full XML is written to a file — use `read` with offset/limit " +
-    "or `bash` with grep to inspect specific parts. " +
-    "Optionally scope to a range of body children (use the summary to pick indices). " +
-    "Body children are the direct elements of <w:body>: paragraphs (<w:p>), tables (<w:tbl>), " +
-    "content controls (<w:sdt>), and section properties (<w:sectPr>).",
-  parameters: Type.Object({
-    startChild: Type.Optional(
-      Type.Number({
-        description:
-          "0-based body-child index to start from. If omitted, starts from the beginning.",
-      }),
-    ),
-    endChild: Type.Optional(
-      Type.Number({
-        description:
-          "0-based body-child index to end at (inclusive). If omitted, goes to the end.",
-      }),
-    ),
-  }),
-  execute: async (_toolCallId, params) => {
-    try {
-      const result = await Word.run(async (context) => {
-        const body = context.document.body;
-        const paragraphs = body.paragraphs;
-        paragraphs.load("items");
-        await context.sync();
+export function createGetOoxmlTool(ctx: AgentContext) {
+  return defineTool({
+    name: "get_ooxml",
+    label: "Get OOXML",
+    description:
+      "Extract the document's OOXML structure and write it to a VFS file for inspection. " +
+      "Returns a summary with body-child indices, types, line numbers, and Office.js collection mappings " +
+      "(paragraphIndex, tableIndex). The full XML is written to a file — use `read` with offset/limit " +
+      "or `bash` with grep to inspect specific parts. " +
+      "Optionally scope to a range of body children (use the summary to pick indices). " +
+      "Body children are the direct elements of <w:body>: paragraphs (<w:p>), tables (<w:tbl>), " +
+      "content controls (<w:sdt>), and section properties (<w:sectPr>).",
+    parameters: Type.Object({
+      startChild: Type.Optional(
+        Type.Number({
+          description:
+            "0-based body-child index to start from. If omitted, starts from the beginning.",
+        }),
+      ),
+      endChild: Type.Optional(
+        Type.Number({
+          description:
+            "0-based body-child index to end at (inclusive). If omitted, goes to the end.",
+        }),
+      ),
+    }),
+    execute: async (_toolCallId, params) => {
+      try {
+        const result = await Word.run(async (context) => {
+          const body = context.document.body;
+          const paragraphs = body.paragraphs;
+          paragraphs.load("items");
+          await context.sync();
 
-        const totalParagraphs = paragraphs.items.length;
-        if (totalParagraphs === 0) {
-          return { error: "Document is empty" };
+          const totalParagraphs = paragraphs.items.length;
+          if (totalParagraphs === 0) {
+            return { error: "Document is empty" };
+          }
+
+          // Get full body OOXML
+          const startPara = paragraphs.items[0];
+          const endPara = paragraphs.items[totalParagraphs - 1];
+          const range = startPara
+            .getRange("Start")
+            .expandTo(endPara.getRange("End"));
+          const ooxml = range.getOoxml();
+          await context.sync();
+
+          return { ooxmlValue: ooxml.value };
+        });
+
+        if ("error" in result) {
+          return toolError(result.error as string);
         }
 
-        // Get full body OOXML
-        const startPara = paragraphs.items[0];
-        const endPara = paragraphs.items[totalParagraphs - 1];
-        const range = startPara
-          .getRange("Start")
-          .expandTo(endPara.getRange("End"));
-        const ooxml = range.getOoxml();
-        await context.sync();
+        const extracted = extractBodyContent(result.ooxmlValue as string);
 
-        return { ooxmlValue: ooxml.value };
-      });
+        // Apply child range filtering if specified
+        let filteredXml = extracted.xml;
+        let filteredChildren = extracted.children;
 
-      if ("error" in result) {
-        return toolError(result.error as string);
-      }
+        if (params.startChild !== undefined || params.endChild !== undefined) {
+          // Re-extract with filtering: parse the body again and only include
+          // the requested range of children
+          const doc = new DOMParser().parseFromString(
+            result.ooxmlValue as string,
+            "text/xml",
+          );
+          const body = doc.getElementsByTagNameNS(W_NS, "body")[0];
 
-      const extracted = extractBodyContent(result.ooxmlValue as string);
-
-      // Apply child range filtering if specified
-      let filteredXml = extracted.xml;
-      let filteredChildren = extracted.children;
-
-      if (params.startChild !== undefined || params.endChild !== undefined) {
-        // Re-extract with filtering: parse the body again and only include
-        // the requested range of children
-        const doc = new DOMParser().parseFromString(
-          result.ooxmlValue as string,
-          "text/xml",
-        );
-        const body = doc.getElementsByTagNameNS(W_NS, "body")[0];
-
-        if (body) {
-          const allElements: Element[] = [];
-          for (const child of Array.from(body.childNodes)) {
-            if (child.nodeType === 1) allElements.push(child as Element);
-          }
-
-          const start = params.startChild ?? 0;
-          const end = params.endChild ?? allElements.length - 1;
-
-          if (start < 0 || start >= allElements.length) {
-            return toolError(
-              `startChild ${start} out of range (0-${allElements.length - 1})`,
-            );
-          }
-          if (end < start || end >= allElements.length) {
-            return toolError(
-              `endChild ${end} out of range (${start}-${allElements.length - 1})`,
-            );
-          }
-
-          // Rebuild with just the requested children
-          const outputParts: string[] = [];
-          const children: ChildSummary[] = [];
-          let lineOffset = 1;
-          let paraOffset = 0;
-          let tableIdx = 0;
-
-          for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i];
-            const tag = el.localName;
-            cleanElement(el);
-
-            // Count paragraphs/tables for offset tracking
-            const pCount =
-              tag === "p" ? 1 : el.getElementsByTagNameNS(W_NS, "p").length;
-
-            if (i >= start && i <= end) {
-              let label = tag;
-              const summary: ChildSummary = {
-                index: i,
-                type: tag,
-                line: lineOffset,
-              };
-
-              if (tag === "tbl") {
-                const rows = el.getElementsByTagNameNS(W_NS, "tr");
-                const firstRow = rows[0];
-                const cols = firstRow
-                  ? firstRow.getElementsByTagNameNS(W_NS, "tc").length
-                  : 0;
-                label = `table (${rows.length} rows x ${cols} cols)`;
-                summary.tableIndex = tableIdx;
-                summary.rows = rows.length;
-                summary.cols = cols;
-                summary.paragraphRange = [paraOffset, paraOffset + pCount - 1];
-              } else if (tag === "p") {
-                const text = getTextContent(el);
-                summary.paragraphIndex = paraOffset;
-                if (text) {
-                  const truncated = text.substring(0, 80);
-                  label = `paragraph: ${JSON.stringify(truncated)}`;
-                  summary.text = truncated;
-                } else {
-                  label = "paragraph (empty)";
-                }
-              } else if (tag === "sdt") {
-                const title =
-                  el
-                    .getElementsByTagNameNS(W_NS, "sdtPr")[0]
-                    ?.getElementsByTagNameNS(W_NS, "alias")[0]
-                    ?.getAttributeNS(W_NS, "val") ?? "";
-                label = `sdt${title ? `: ${title}` : ""}`;
-                summary.paragraphRange = [paraOffset, paraOffset + pCount - 1];
-              } else if (tag === "sectPr") {
-                label = "sectPr";
-              }
-
-              children.push(summary);
-              const rawXml = new XMLSerializer().serializeToString(el);
-              const pretty = prettyPrintXml(rawXml);
-              const commentLine = `<!-- Body child ${i}: ${label} -->`;
-              const block = `${commentLine}\n${pretty}`;
-              const blockLines = block.split("\n").length;
-              outputParts.push(block);
-              lineOffset += blockLines + 1;
+          if (body) {
+            const allElements: Element[] = [];
+            for (const child of Array.from(body.childNodes)) {
+              if (child.nodeType === 1) allElements.push(child as Element);
             }
 
-            // Always advance counters
-            if (tag === "tbl") tableIdx++;
-            paraOffset += pCount;
+            const start = params.startChild ?? 0;
+            const end = params.endChild ?? allElements.length - 1;
+
+            if (start < 0 || start >= allElements.length) {
+              return toolError(
+                `startChild ${start} out of range (0-${allElements.length - 1})`,
+              );
+            }
+            if (end < start || end >= allElements.length) {
+              return toolError(
+                `endChild ${end} out of range (${start}-${allElements.length - 1})`,
+              );
+            }
+
+            // Rebuild with just the requested children
+            const outputParts: string[] = [];
+            const children: ChildSummary[] = [];
+            let lineOffset = 1;
+            let paraOffset = 0;
+            let tableIdx = 0;
+
+            for (let i = 0; i < allElements.length; i++) {
+              const el = allElements[i];
+              const tag = el.localName;
+              cleanElement(el);
+
+              // Count paragraphs/tables for offset tracking
+              const pCount =
+                tag === "p" ? 1 : el.getElementsByTagNameNS(W_NS, "p").length;
+
+              if (i >= start && i <= end) {
+                let label = tag;
+                const summary: ChildSummary = {
+                  index: i,
+                  type: tag,
+                  line: lineOffset,
+                };
+
+                if (tag === "tbl") {
+                  const rows = el.getElementsByTagNameNS(W_NS, "tr");
+                  const firstRow = rows[0];
+                  const cols = firstRow
+                    ? firstRow.getElementsByTagNameNS(W_NS, "tc").length
+                    : 0;
+                  label = `table (${rows.length} rows x ${cols} cols)`;
+                  summary.tableIndex = tableIdx;
+                  summary.rows = rows.length;
+                  summary.cols = cols;
+                  summary.paragraphRange = [
+                    paraOffset,
+                    paraOffset + pCount - 1,
+                  ];
+                } else if (tag === "p") {
+                  const text = getTextContent(el);
+                  summary.paragraphIndex = paraOffset;
+                  if (text) {
+                    const truncated = text.substring(0, 80);
+                    label = `paragraph: ${JSON.stringify(truncated)}`;
+                    summary.text = truncated;
+                  } else {
+                    label = "paragraph (empty)";
+                  }
+                } else if (tag === "sdt") {
+                  const title =
+                    el
+                      .getElementsByTagNameNS(W_NS, "sdtPr")[0]
+                      ?.getElementsByTagNameNS(W_NS, "alias")[0]
+                      ?.getAttributeNS(W_NS, "val") ?? "";
+                  label = `sdt${title ? `: ${title}` : ""}`;
+                  summary.paragraphRange = [
+                    paraOffset,
+                    paraOffset + pCount - 1,
+                  ];
+                } else if (tag === "sectPr") {
+                  label = "sectPr";
+                }
+
+                children.push(summary);
+                const rawXml = new XMLSerializer().serializeToString(el);
+                const pretty = prettyPrintXml(rawXml);
+                const commentLine = `<!-- Body child ${i}: ${label} -->`;
+                const block = `${commentLine}\n${pretty}`;
+                const blockLines = block.split("\n").length;
+                outputParts.push(block);
+                lineOffset += blockLines + 1;
+              }
+
+              // Always advance counters
+              if (tag === "tbl") tableIdx++;
+              paraOffset += pCount;
+            }
+
+            filteredXml = outputParts.join("\n\n");
+            filteredChildren = children;
           }
-
-          filteredXml = outputParts.join("\n\n");
-          filteredChildren = children;
         }
-      }
 
-      // Build the file content with styles/numbering header
-      const fileParts: string[] = [];
-      if (extracted.styleXml) {
-        fileParts.push(
-          `<!-- Referenced styles -->\n${prettyPrintXml(extracted.styleXml)}`,
-        );
-      }
-      if (extracted.numberingXml) {
-        fileParts.push(
-          `<!-- Numbering definitions -->\n${prettyPrintXml(extracted.numberingXml)}`,
-        );
-      }
-      fileParts.push(filteredXml);
-      const fileContent = fileParts.join("\n\n");
-
-      // Recalculate line offsets if styles/numbering were prepended
-      if (extracted.styleXml || extracted.numberingXml) {
-        const headerLines =
-          fileContent.split("\n").length - filteredXml.split("\n").length;
-        for (const child of filteredChildren) {
-          child.line += headerLines;
+        // Build the file content with styles/numbering header
+        const fileParts: string[] = [];
+        if (extracted.styleXml) {
+          fileParts.push(
+            `<!-- Referenced styles -->\n${prettyPrintXml(extracted.styleXml)}`,
+          );
         }
+        if (extracted.numberingXml) {
+          fileParts.push(
+            `<!-- Numbering definitions -->\n${prettyPrintXml(extracted.numberingXml)}`,
+          );
+        }
+        fileParts.push(filteredXml);
+        const fileContent = fileParts.join("\n\n");
+
+        // Recalculate line offsets if styles/numbering were prepended
+        if (extracted.styleXml || extracted.numberingXml) {
+          const headerLines =
+            fileContent.split("\n").length - filteredXml.split("\n").length;
+          for (const child of filteredChildren) {
+            child.line += headerLines;
+          }
+        }
+
+        // Write to VFS
+        const rangeLabel =
+          params.startChild !== undefined || params.endChild !== undefined
+            ? `-${params.startChild ?? 0}-${params.endChild ?? "end"}`
+            : "";
+        const filePath = `/home/user/ooxml/body${rangeLabel}.xml`;
+        await ctx.writeFile(filePath, fileContent);
+
+        const lines = fileContent.split("\n").length;
+        const sizeKB = Math.round(fileContent.length / 1024);
+
+        return toolSuccess({
+          file: filePath,
+          size: `${sizeKB}KB`,
+          lines,
+          children: filteredChildren,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to get OOXML";
+        return toolError(message);
       }
-
-      // Write to VFS
-      const rangeLabel =
-        params.startChild !== undefined || params.endChild !== undefined
-          ? `-${params.startChild ?? 0}-${params.endChild ?? "end"}`
-          : "";
-      const filePath = `/home/user/ooxml/body${rangeLabel}.xml`;
-      await writeFile(filePath, fileContent);
-
-      const lines = fileContent.split("\n").length;
-      const sizeKB = Math.round(fileContent.length / 1024);
-
-      return toolSuccess({
-        file: filePath,
-        size: `${sizeKB}KB`,
-        lines,
-        children: filteredChildren,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to get OOXML";
-      return toolError(message);
-    }
-  },
-});
+    },
+  });
+}

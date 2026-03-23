@@ -1,3 +1,4 @@
+import type { AgentContext, StorageNamespace } from "../context";
 import {
   deleteSkillFiles,
   listSkillNames,
@@ -5,7 +6,6 @@ import {
   loadSkillFiles,
   saveSkillFiles,
 } from "../storage";
-import { setSkillFiles } from "../vfs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -54,7 +54,11 @@ function normalizeFiles(
   }));
 }
 
-export async function addSkill(files: SkillInput[]): Promise<SkillMeta> {
+export async function addSkill(
+  ns: StorageNamespace,
+  ctx: AgentContext,
+  files: SkillInput[],
+): Promise<SkillMeta> {
   const skillMd = findSkillMd(files);
   if (!skillMd) {
     throw new Error("Skill must contain a SKILL.md file");
@@ -71,22 +75,28 @@ export async function addSkill(files: SkillInput[]): Promise<SkillMeta> {
     );
   }
 
-  await saveSkillFiles(meta.name, normalizeFiles(files));
-  await syncSkillsToVfs();
+  await saveSkillFiles(ns, meta.name, normalizeFiles(files));
+  await syncSkillsToVfs(ns, ctx);
   return meta;
 }
 
-export async function removeSkill(name: string): Promise<void> {
-  await deleteSkillFiles(name);
-  await syncSkillsToVfs();
+export async function removeSkill(
+  ns: StorageNamespace,
+  ctx: AgentContext,
+  name: string,
+): Promise<void> {
+  await deleteSkillFiles(ns, name);
+  await syncSkillsToVfs(ns, ctx);
 }
 
-export async function getInstalledSkills(): Promise<SkillMeta[]> {
-  const names = await listSkillNames();
+export async function getInstalledSkills(
+  ns: StorageNamespace,
+): Promise<SkillMeta[]> {
+  const names = await listSkillNames(ns);
   const skills: SkillMeta[] = [];
 
   for (const name of names) {
-    const files = await loadSkillFiles(name);
+    const files = await loadSkillFiles(ns, name);
     const skillMd = files.find((f) => f.path === "SKILL.md");
     if (skillMd) {
       const content = decoder.decode(skillMd.data);
@@ -102,13 +112,16 @@ export async function getInstalledSkills(): Promise<SkillMeta[]> {
   return skills;
 }
 
-export async function syncSkillsToVfs(): Promise<void> {
-  const allFiles = await loadAllSkillFiles();
+export async function syncSkillsToVfs(
+  ns: StorageNamespace,
+  ctx: AgentContext,
+): Promise<void> {
+  const allFiles = await loadAllSkillFiles(ns);
   const initialFiles: Record<string, Uint8Array> = {};
   for (const f of allFiles) {
     initialFiles[`/home/skills/${f.skillName}/${f.path}`] = f.data;
   }
-  setSkillFiles(initialFiles);
+  ctx.setSkillFiles(initialFiles);
 }
 
 export function buildSkillsPromptSection(skills: SkillMeta[]): string {

@@ -1,9 +1,12 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type {
+  AgentContext,
   CustomCommandsResult,
   SkillMeta,
   StorageNamespace,
 } from "@office-agents/sdk";
+
+export type { StorageNamespace };
 import type { Component } from "svelte";
 
 export type { CustomCommandsResult };
@@ -25,7 +28,7 @@ export interface ToolExtrasProps {
 }
 
 export interface AppAdapter {
-  tools: AgentTool[];
+  tools: AgentTool[] | ((ctx: AgentContext) => AgentTool[]);
   buildSystemPrompt: (skills: SkillMeta[], commandSnippets: string[]) => string;
   getDocumentId: () => Promise<string>;
   getDocumentMetadata?: () => Promise<{
@@ -34,12 +37,12 @@ export interface AppAdapter {
   } | null>;
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
-  storageNamespace?: StorageNamespace;
+  storageNamespace?: Partial<StorageNamespace>;
   appVersion?: string;
   appName?: string;
   emptyStateMessage?: string;
   staticFiles?: Record<string, string>;
-  customCommands?: () => CustomCommandsResult;
+  customCommands?: (ns: StorageNamespace) => CustomCommandsResult;
   hasImageSearch?: boolean;
   showFollowModeToggle?: boolean;
   handleLinkClick?: (

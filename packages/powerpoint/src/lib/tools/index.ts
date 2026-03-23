@@ -1,42 +1,45 @@
-import { bashTool, readTool } from "@office-agents/core";
+import type { AgentContext } from "@office-agents/core";
+import { createBashTool, createReadTool } from "@office-agents/core";
 import { duplicateSlideTool } from "./duplicate-slide";
-import { editSlideChartTool } from "./edit-slide-chart";
-import { editSlideMasterTool } from "./edit-slide-master";
+import { createEditSlideChartTool } from "./edit-slide-chart";
+import { createEditSlideMasterTool } from "./edit-slide-master";
 import { editSlideTextTool } from "./edit-slide-text";
-import { editSlideXmlTool } from "./edit-slide-xml";
-import { executeOfficeJsTool } from "./execute-office-js";
+import { createEditSlideXmlTool } from "./edit-slide-xml";
+import { createExecuteOfficeJsTool } from "./execute-office-js";
 import { listSlideShapesTool } from "./list-slide-shapes";
 import { readSlideTextTool } from "./read-slide-text";
 import { screenshotSlideTool } from "./screenshot-slide";
 import { verifySlidesTool } from "./verify-slides";
 
-export const PPT_TOOLS = [
-  // fs tools
-  readTool,
-  bashTool,
-  // PPT read tools
-  screenshotSlideTool,
-  listSlideShapesTool,
-  readSlideTextTool,
-  verifySlidesTool,
-  // PPT write tools
-  executeOfficeJsTool,
-  editSlideTextTool,
-  editSlideXmlTool,
-  editSlideChartTool,
-  editSlideMasterTool,
-  duplicateSlideTool,
-];
+export function createPptTools(ctx: AgentContext) {
+  return [
+    // fs tools
+    createReadTool(ctx),
+    createBashTool(ctx),
+    // PPT read tools
+    screenshotSlideTool,
+    listSlideShapesTool,
+    readSlideTextTool,
+    verifySlidesTool,
+    // PPT write tools
+    createExecuteOfficeJsTool(ctx),
+    editSlideTextTool,
+    createEditSlideXmlTool(ctx),
+    createEditSlideChartTool(ctx),
+    createEditSlideMasterTool(ctx),
+    duplicateSlideTool,
+  ];
+}
 
 export {
-  bashTool,
-  readTool,
+  createBashTool,
+  createReadTool,
+  createEditSlideChartTool,
+  createEditSlideMasterTool,
+  createEditSlideXmlTool,
+  createExecuteOfficeJsTool,
   duplicateSlideTool,
-  editSlideChartTool,
-  editSlideMasterTool,
   editSlideTextTool,
-  editSlideXmlTool,
-  executeOfficeJsTool,
   listSlideShapesTool,
   readSlideTextTool,
   screenshotSlideTool,

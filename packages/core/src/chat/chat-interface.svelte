@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSessionMessageCount } from "@office-agents/sdk";
+  import { type AgentContext, getSessionMessageCount } from "@office-agents/sdk";
   import {
     Check,
     ChevronDown,
@@ -30,12 +30,13 @@
 
   interface Props {
     adapter: AppAdapter;
+    context: AgentContext;
   }
 
-  let { adapter }: Props = $props();
+  let { adapter, context }: Props = $props();
 
   const controller = (() => {
-    const ctrl = new ChatController(adapter);
+    const ctrl = new ChatController(adapter, context);
     setChatContext(ctrl);
     return ctrl;
   })();

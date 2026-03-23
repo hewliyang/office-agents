@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getVfs, readFileBuffer, toBase64 } from "@office-agents/sdk";
+  import { toBase64 } from "@office-agents/sdk";
   import {
     Download,
     File,
@@ -80,7 +80,7 @@
   async function refresh() {
     loading = true;
     try {
-      const vfs = getVfs();
+      const vfs = chat.context.vfs;
       const allPaths = vfs.getAllPaths();
       const result: VfsFile[] = [];
 
@@ -109,7 +109,7 @@
 
   async function handleDownload(file: VfsFile) {
     try {
-      const data = await readFileBuffer(file.path);
+      const data = await chat.context.readFileBuffer(file.path);
       downloadBlob(data, file.name, guessMime(file.name));
     } catch (error) {
       console.error("Download failed:", error);
@@ -118,7 +118,7 @@
 
   async function handlePreview(file: VfsFile) {
     try {
-      const data = await readFileBuffer(file.path);
+      const data = await chat.context.readFileBuffer(file.path);
       const mime = guessMime(file.name);
       if (mime.startsWith("image/")) {
         preview = {
@@ -133,8 +133,7 @@
 
   async function handleDelete(file: VfsFile) {
     try {
-      const vfs = getVfs();
-      await vfs.rm(file.path);
+      await chat.context.deleteFile(file.path);
       if (file.path.startsWith("/home/user/uploads/")) {
         await chat.removeUpload(file.path.replace("/home/user/uploads/", ""));
       }

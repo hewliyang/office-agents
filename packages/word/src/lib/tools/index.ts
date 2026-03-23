@@ -1,30 +1,33 @@
-import { bashTool, readTool } from "@office-agents/core";
-import { executeOfficeJsTool } from "./execute-office-js";
+import type { AgentContext } from "@office-agents/core";
+import { createBashTool, createReadTool } from "@office-agents/core";
+import { createExecuteOfficeJsTool } from "./execute-office-js";
 import { getDocumentStructureTool } from "./get-document-structure";
 import { getDocumentTextTool } from "./get-document-text";
-import { getOoxmlTool } from "./get-ooxml";
+import { createGetOoxmlTool } from "./get-ooxml";
 import { screenshotDocumentTool } from "./screenshot-document";
 
-export const WORD_TOOLS = [
-  // fs tools
-  readTool,
-  bashTool,
-  // Word read tools
-  screenshotDocumentTool,
-  getDocumentTextTool,
-  getDocumentStructureTool,
-  getOoxmlTool,
-  // Word write tools
-  executeOfficeJsTool,
-];
+export function createWordTools(ctx: AgentContext) {
+  return [
+    // fs tools
+    createReadTool(ctx),
+    createBashTool(ctx),
+    // Word read tools
+    screenshotDocumentTool,
+    getDocumentTextTool,
+    getDocumentStructureTool,
+    createGetOoxmlTool(ctx),
+    // Word write tools
+    createExecuteOfficeJsTool(ctx),
+  ];
+}
 
 export {
-  bashTool,
-  readTool,
-  executeOfficeJsTool,
+  createBashTool,
+  createReadTool,
+  createExecuteOfficeJsTool,
   getDocumentStructureTool,
   getDocumentTextTool,
-  getOoxmlTool,
+  createGetOoxmlTool,
   screenshotDocumentTool,
 };
 

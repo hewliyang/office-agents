@@ -5,16 +5,24 @@ import TrackChangesIndicator from "./components/track-changes-indicator.svelte";
 import wordApiFullDts from "./docs/word-officejs-api.d.ts?raw";
 import wordApiOnlineDts from "./docs/word-officejs-api-online.d.ts?raw";
 import { buildWordSystemPrompt } from "./system-prompt";
-import { WORD_TOOLS } from "./tools";
+import { createWordTools } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
 
 /* global Word */
 
 const TRACKING_MODE_CHANGED_EVENT = "word-tracking-mode-maybe-changed";
 
+const STORAGE_NAMESPACE = {
+  dbName: "OpenWordDB_v1",
+  dbVersion: 1,
+  localStoragePrefix: "openword",
+  documentSettingsPrefix: "openword",
+  documentIdSettingsKey: "openword-document-id",
+};
+
 export function createWordAdapter(): AppAdapter {
   return {
-    tools: WORD_TOOLS,
+    tools: (ctx) => createWordTools(ctx),
     customCommands: getCustomCommands,
     hasImageSearch: true,
     showFollowModeToggle: false,
@@ -25,13 +33,7 @@ export function createWordAdapter(): AppAdapter {
 
     appName: "OpenWord",
     metadataTag: "doc_context",
-    storageNamespace: {
-      dbName: "OpenWordDB_v1",
-      dbVersion: 1,
-      localStoragePrefix: "openword",
-      documentSettingsPrefix: "openword",
-      documentIdSettingsKey: "openword-document-id",
-    },
+    storageNamespace: STORAGE_NAMESPACE,
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to create or edit your document",
     HeaderExtras: TrackChangesIndicator,
@@ -39,7 +41,7 @@ export function createWordAdapter(): AppAdapter {
     buildSystemPrompt: buildWordSystemPrompt,
 
     getDocumentId: async () => {
-      return getOrCreateDocumentId();
+      return getOrCreateDocumentId(STORAGE_NAMESPACE);
     },
 
     getDocumentMetadata: async () => {

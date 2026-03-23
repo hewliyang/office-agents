@@ -25,19 +25,18 @@ export const OAUTH_PROVIDERS: Record<
   },
 };
 
-// --- Credential Storage ---
+import type { StorageNamespace } from "../context";
 
-import { getNamespace } from "../storage/namespace";
-
-function oauthStorageKey(): string {
-  return `${getNamespace().localStoragePrefix}-oauth-credentials`;
+function oauthStorageKey(ns: StorageNamespace): string {
+  return `${ns.localStoragePrefix}-oauth-credentials`;
 }
 
 export function loadOAuthCredentials(
+  ns: StorageNamespace,
   provider: string,
 ): OAuthCredentials | null {
   try {
-    const store = JSON.parse(localStorage.getItem(oauthStorageKey()) || "{}");
+    const store = JSON.parse(localStorage.getItem(oauthStorageKey(ns)) || "{}");
     return store[provider] || null;
   } catch {
     return null;
@@ -45,11 +44,12 @@ export function loadOAuthCredentials(
 }
 
 export function saveOAuthCredentials(
+  ns: StorageNamespace,
   provider: string,
   creds: OAuthCredentials,
 ) {
   try {
-    const key = oauthStorageKey();
+    const key = oauthStorageKey(ns);
     const store = JSON.parse(localStorage.getItem(key) || "{}");
     store[provider] = creds;
     localStorage.setItem(key, JSON.stringify(store));
@@ -58,9 +58,9 @@ export function saveOAuthCredentials(
   }
 }
 
-export function removeOAuthCredentials(provider: string) {
+export function removeOAuthCredentials(ns: StorageNamespace, provider: string) {
   try {
-    const key = oauthStorageKey();
+    const key = oauthStorageKey(ns);
     const store = JSON.parse(localStorage.getItem(key) || "{}");
     delete store[provider];
     localStorage.setItem(key, JSON.stringify(store));
@@ -68,8 +68,6 @@ export function removeOAuthCredentials(provider: string) {
     /* ignore */
   }
 }
-
-// --- PKCE (Web Crypto, browser-safe) ---
 
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = "";
@@ -98,8 +96,6 @@ function createRandomState(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// --- Provider Constants ---
-
 const ANTHROPIC_CLIENT_ID = atob(
   "OWQxYzI1MGEtZTYxYi00NGQ5LTg4ZWQtNTk0NGQxOTYyZjVl",
 );
@@ -114,8 +110,6 @@ const OPENAI_CODEX_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
 const OPENAI_CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 const OPENAI_CODEX_REDIRECT_URI = "http://localhost:1455/auth/callback";
 const OPENAI_CODEX_SCOPE = "openid profile email offline_access";
-
-// --- Authorization URL ---
 
 export function buildAuthorizationUrl(
   provider: string,
@@ -151,39 +145,6 @@ export function buildAuthorizationUrl(
   return { url: `${ANTHROPIC_AUTHORIZE_URL}?${params}` };
 }
 
-// --- Input Parsing ---
-
-function parseAuthorizationInput(input: string): {
-  code?: string;
-  state?: string;
-} {
-  const value = input.trim();
-  if (!value) return {};
-  try {
-    const url = new URL(value);
-    return {
-      code: url.searchParams.get("code") ?? undefined,
-      state: url.searchParams.get("state") ?? undefined,
-    };
-  } catch {
-    /* not a URL */
-  }
-  if (value.includes("#")) {
-    const [code, state] = value.split("#", 2);
-    return { code, state };
-  }
-  if (value.includes("code=")) {
-    const params = new URLSearchParams(value);
-    return {
-      code: params.get("code") ?? undefined,
-      state: params.get("state") ?? undefined,
-    };
-  }
-  return { code: value };
-}
-
-// --- Proxy URL helper ---
-
 function buildProxiedUrl(
   baseUrl: string,
   useProxy: boolean,
@@ -193,8 +154,6 @@ function buildProxiedUrl(
     ? `${proxyUrl}/?url=${encodeURIComponent(baseUrl)}`
     : baseUrl;
 }
-
-// --- Token Refresh ---
 
 async function refreshAnthropicOAuth(
   refreshToken: string,
@@ -273,8 +232,6 @@ export async function refreshOAuthToken(
   return refreshAnthropicOAuth(refreshToken, proxyUrl, useProxy);
 }
 
-// --- Token Exchange ---
-
 export async function exchangeOAuthCode(params: {
   provider: string;
   rawInput: string;
@@ -285,6 +242,36 @@ export async function exchangeOAuthCode(params: {
 }): Promise<OAuthCredentials> {
   const { provider, rawInput, verifier, expectedState, useProxy, proxyUrl } =
     params;
+
+  function parseAuthorizationInput(input: string): {
+    code?: string;
+    state?: string;
+  } {
+    const value = input.trim();
+    if (!value) return {};
+    try {
+      const url = new URL(value);
+      return {
+        code: url.searchParams.get("code") ?? undefined,
+        state: url.searchParams.get("state") ?? undefined,
+      };
+    } catch {
+      /* not a URL */
+    }
+    if (value.includes("#")) {
+      const [code, state] = value.split("#", 2);
+      return { code, state };
+    }
+    if (value.includes("code=")) {
+      const p = new URLSearchParams(value);
+      return {
+        code: p.get("code") ?? undefined,
+        state: p.get("state") ?? undefined,
+      };
+    }
+    return { code: value };
+  }
+
   const parsed = parseAuthorizationInput(rawInput);
   if (!parsed.code)
     throw new Error("Could not extract authorization code from input");
@@ -328,7 +315,6 @@ export async function exchangeOAuthCode(params: {
     };
   }
 
-  // Anthropic
   const url = buildProxiedUrl(ANTHROPIC_TOKEN_URL, useProxy, proxyUrl);
   const response = await fetch(url, {
     method: "POST",

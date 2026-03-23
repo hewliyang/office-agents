@@ -1,5 +1,10 @@
-// Runtime
-
+// Context
+export {
+  AgentContext,
+  type AgentContextOptions,
+  type StorageNamespace,
+} from "./context";
+// Image resize
 export type { ImageResizeOptions, ResizedImage } from "./image-resize";
 export { resizeImage } from "./image-resize";
 // Lockdown
@@ -41,6 +46,7 @@ export {
   THINKING_LEVELS,
   type ThinkingLevel,
 } from "./provider-config";
+// Runtime
 export {
   AgentRuntime,
   type RuntimeAdapter,
@@ -63,10 +69,8 @@ export {
 // Storage
 export {
   type ChatSession,
-  configureNamespace,
   createSession,
   deleteSession,
-  getNamespace,
   getOrCreateCurrentSession,
   getOrCreateDocumentId,
   getSession,
@@ -74,13 +78,12 @@ export {
   listSessions,
   loadVfsFiles,
   renameSession,
-  type StorageNamespace,
   saveSession,
   saveVfsFiles,
 } from "./storage";
 // Tools
-export { bashTool } from "./tools/bash";
-export { readTool } from "./tools/read-file";
+export { createBashTool } from "./tools/bash";
+export { createReadTool } from "./tools/read-file";
 export {
   defineTool,
   type ToolResult,
@@ -96,27 +99,14 @@ export {
   truncateHead,
   truncateTail,
 } from "./truncate";
-// VFS
+// VFS utilities
 export {
   type CustomCommandsResult,
   type DescribedCommand,
-  deleteFile,
-  fileExists,
-  getBash,
+  detectImageMimeType,
   getFileType,
   getSharedCustomCommands,
-  getVfs,
-  listUploads,
-  readFile,
-  readFileBuffer,
-  resetVfs,
-  restoreVfs,
-  setCustomCommands,
-  setSkillFiles,
-  setStaticFiles,
-  snapshotVfs,
   toBase64,
-  writeFile,
 } from "./vfs";
 // Web
 export { loadWebConfig, saveWebConfig, type WebConfig } from "./web/config";

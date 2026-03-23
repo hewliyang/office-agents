@@ -1,6 +1,6 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
+import type { StorageNamespace } from "./context";
 import { loadOAuthCredentials } from "./oauth";
-import { getNamespace } from "./storage/namespace";
 
 export type ThinkingLevel = "none" | "low" | "medium" | "high";
 
@@ -18,8 +18,8 @@ export interface ProviderConfig {
   authMethod?: "apikey" | "oauth";
 }
 
-function storageKey(): string {
-  return `${getNamespace().localStoragePrefix}-provider-config`;
+function storageKey(ns: StorageNamespace): string {
+  return `${ns.localStoragePrefix}-provider-config`;
 }
 
 export const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
@@ -64,9 +64,9 @@ export const API_TYPES = [
   { id: "google-vertex", name: "Google Vertex AI", hint: "Vertex AI endpoint" },
 ];
 
-export function loadSavedConfig(): ProviderConfig | null {
+export function loadSavedConfig(ns: StorageNamespace): ProviderConfig | null {
   try {
-    const saved = localStorage.getItem(storageKey());
+    const saved = localStorage.getItem(storageKey(ns));
     if (saved) {
       const config = JSON.parse(saved);
       if (config.proxyUrl === undefined) config.proxyUrl = "";
@@ -76,7 +76,7 @@ export function loadSavedConfig(): ProviderConfig | null {
       if (config.customBaseUrl === undefined) config.customBaseUrl = "";
       if (config.authMethod === undefined) config.authMethod = "apikey";
       if (config.authMethod === "oauth") {
-        const creds = loadOAuthCredentials(config.provider);
+        const creds = loadOAuthCredentials(ns, config.provider);
         if (creds) config.apiKey = creds.access;
       }
       return config;
@@ -85,8 +85,8 @@ export function loadSavedConfig(): ProviderConfig | null {
   return null;
 }
 
-export function saveConfig(config: ProviderConfig) {
-  localStorage.setItem(storageKey(), JSON.stringify(config));
+export function saveConfig(ns: StorageNamespace, config: ProviderConfig) {
+  localStorage.setItem(storageKey(ns), JSON.stringify(config));
 }
 
 export function buildCustomModel(config: ProviderConfig): Model<Api> | null {

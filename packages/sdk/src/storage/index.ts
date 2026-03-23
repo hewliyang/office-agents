@@ -18,8 +18,4 @@ export {
   saveSkillFiles,
   saveVfsFiles,
 } from "./db";
-export {
-  configureNamespace,
-  getNamespace,
-  type StorageNamespace,
-} from "./namespace";
+export type { StorageNamespace } from "./namespace";

@@ -1,8 +1,8 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { UserMessage } from "@mariozechner/pi-ai";
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
+import type { StorageNamespace } from "../context";
 import { stripEnrichment } from "../message-utils";
-import { getNamespace } from "./namespace";
 
 export interface ChatSession {
   id: string;
@@ -14,16 +14,16 @@ export interface ChatSession {
 }
 
 export interface VfsFile {
-  id: string; // "{sessionId}:{path}" composite key
+  id: string;
   sessionId: string;
   path: string;
   data: Uint8Array;
 }
 
 export interface SkillFile {
-  id: string; // "{skillName}:{path}" composite key
+  id: string;
   skillName: string;
-  path: string; // relative path within skill folder, e.g. "SKILL.md"
+  path: string;
   data: Uint8Array;
 }
 
@@ -48,8 +48,9 @@ interface OfficeAgentsSchema extends DBSchema {
 let dbPromise: Promise<IDBPDatabase<OfficeAgentsSchema>> | null = null;
 let dbKey: string | null = null;
 
-function getDb(): Promise<IDBPDatabase<OfficeAgentsSchema>> {
-  const ns = getNamespace();
+function getDb(
+  ns: StorageNamespace,
+): Promise<IDBPDatabase<OfficeAgentsSchema>> {
   const key = `${ns.dbName}@${ns.dbVersion}`;
   if (dbPromise && dbKey === key) return dbPromise;
 
@@ -96,8 +97,9 @@ export function getSessionMessageCount(session: ChatSession): number {
   ).length;
 }
 
-export async function getOrCreateDocumentId(): Promise<string> {
-  const ns = getNamespace();
+export async function getOrCreateDocumentId(
+  ns: StorageNamespace,
+): Promise<string> {
   const settingsKey =
     ns.documentIdSettingsKey ?? `${ns.documentSettingsPrefix}-document-id`;
   return new Promise((resolve, reject) => {
@@ -123,8 +125,11 @@ export async function getOrCreateDocumentId(): Promise<string> {
   });
 }
 
-export async function listSessions(workbookId: string): Promise<ChatSession[]> {
-  const db = await getDb();
+export async function listSessions(
+  ns: StorageNamespace,
+  workbookId: string,
+): Promise<ChatSession[]> {
+  const db = await getDb(ns);
   const sessions = await db.getAllFromIndex(
     "sessions",
     "workbookId",
@@ -138,10 +143,11 @@ export async function listSessions(workbookId: string): Promise<ChatSession[]> {
 }
 
 export async function createSession(
+  ns: StorageNamespace,
   workbookId: string,
   name?: string,
 ): Promise<ChatSession> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const now = Date.now();
   const session: ChatSession = {
     id: crypto.randomUUID(),
@@ -156,9 +162,10 @@ export async function createSession(
 }
 
 export async function getSession(
+  ns: StorageNamespace,
   sessionId: string,
 ): Promise<ChatSession | undefined> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const session = await db.get("sessions", sessionId);
   if (session && !session.agentMessages) {
     session.agentMessages = [];
@@ -167,6 +174,7 @@ export async function getSession(
 }
 
 export async function saveSession(
+  ns: StorageNamespace,
   sessionId: string,
   agentMessages: AgentMessage[],
 ): Promise<void> {
@@ -176,7 +184,7 @@ export async function saveSession(
     "agentMessages:",
     agentMessages.length,
   );
-  const db = await getDb();
+  const db = await getDb(ns);
   const session = await db.get("sessions", sessionId);
   if (!session) {
     console.error("[DB] Session not found for save:", sessionId);
@@ -197,39 +205,45 @@ export async function saveSession(
 }
 
 export async function renameSession(
+  ns: StorageNamespace,
   sessionId: string,
   name: string,
 ): Promise<void> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const session = await db.get("sessions", sessionId);
   if (session) {
     await db.put("sessions", { ...session, name });
   }
 }
 
-export async function deleteSession(sessionId: string): Promise<void> {
-  const db = await getDb();
+export async function deleteSession(
+  ns: StorageNamespace,
+  sessionId: string,
+): Promise<void> {
+  const db = await getDb(ns);
   await db.delete("sessions", sessionId);
 }
 
 export async function getOrCreateCurrentSession(
+  ns: StorageNamespace,
   workbookId: string,
 ): Promise<ChatSession> {
-  const sessions = await listSessions(workbookId);
+  const sessions = await listSessions(ns, workbookId);
   if (sessions.length > 0) {
     const session = sessions[0];
     if (!session.agentMessages) session.agentMessages = [];
     return session;
   }
-  return createSession(workbookId);
+  return createSession(ns, workbookId);
 }
 
 export async function saveVfsFiles(
+  ns: StorageNamespace,
   sessionId: string,
   files: { path: string; data: Uint8Array }[],
 ): Promise<void> {
   console.log("[DB] saveVfsFiles:", sessionId, "files:", files.length);
-  const db = await getDb();
+  const db = await getDb(ns);
   const tx = db.transaction("vfsFiles", "readwrite");
   const store = tx.store;
   const existing = await store.index("sessionId").getAllKeys(sessionId);
@@ -248,16 +262,20 @@ export async function saveVfsFiles(
 }
 
 export async function loadVfsFiles(
+  ns: StorageNamespace,
   sessionId: string,
 ): Promise<{ path: string; data: Uint8Array }[]> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const rows = await db.getAllFromIndex("vfsFiles", "sessionId", sessionId);
   console.log("[DB] loadVfsFiles:", sessionId, "files:", rows.length);
   return rows.map((r) => ({ path: r.path, data: r.data }));
 }
 
-export async function deleteVfsFiles(sessionId: string): Promise<void> {
-  const db = await getDb();
+export async function deleteVfsFiles(
+  ns: StorageNamespace,
+  sessionId: string,
+): Promise<void> {
+  const db = await getDb(ns);
   const tx = db.transaction("vfsFiles", "readwrite");
   const keys = await tx.store.index("sessionId").getAllKeys(sessionId);
   for (const key of keys) {
@@ -267,10 +285,11 @@ export async function deleteVfsFiles(sessionId: string): Promise<void> {
 }
 
 export async function saveSkillFiles(
+  ns: StorageNamespace,
   skillName: string,
   files: { path: string; data: Uint8Array }[],
 ): Promise<void> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const tx = db.transaction("skillFiles", "readwrite");
   const store = tx.store;
   const existing = await store.index("skillName").getAllKeys(skillName);
@@ -289,17 +308,18 @@ export async function saveSkillFiles(
 }
 
 export async function loadSkillFiles(
+  ns: StorageNamespace,
   skillName: string,
 ): Promise<{ path: string; data: Uint8Array }[]> {
-  const db = await getDb();
+  const db = await getDb(ns);
   const rows = await db.getAllFromIndex("skillFiles", "skillName", skillName);
   return rows.map((r) => ({ path: r.path, data: r.data }));
 }
 
-export async function loadAllSkillFiles(): Promise<
-  { skillName: string; path: string; data: Uint8Array }[]
-> {
-  const db = await getDb();
+export async function loadAllSkillFiles(
+  ns: StorageNamespace,
+): Promise<{ skillName: string; path: string; data: Uint8Array }[]> {
+  const db = await getDb(ns);
   const rows = await db.getAll("skillFiles");
   return rows.map((r) => ({
     skillName: r.skillName,
@@ -308,8 +328,11 @@ export async function loadAllSkillFiles(): Promise<
   }));
 }
 
-export async function deleteSkillFiles(skillName: string): Promise<void> {
-  const db = await getDb();
+export async function deleteSkillFiles(
+  ns: StorageNamespace,
+  skillName: string,
+): Promise<void> {
+  const db = await getDb(ns);
   const tx = db.transaction("skillFiles", "readwrite");
   const keys = await tx.store.index("skillName").getAllKeys(skillName);
   for (const key of keys) {
@@ -318,8 +341,8 @@ export async function deleteSkillFiles(skillName: string): Promise<void> {
   await tx.done;
 }
 
-export async function listSkillNames(): Promise<string[]> {
-  const db = await getDb();
+export async function listSkillNames(ns: StorageNamespace): Promise<string[]> {
+  const db = await getDb(ns);
   const rows = await db.getAll("skillFiles");
   const names = new Set(rows.map((r) => r.skillName));
   return [...names].sort();

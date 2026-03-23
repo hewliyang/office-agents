@@ -1,5 +1,6 @@
 import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
+import type { StorageNamespace } from "../context";
 import { loadPdfDocument } from "../pdf";
 import { loadSavedConfig } from "../provider-config";
 import { loadWebConfig } from "../web/config";
@@ -25,6 +26,7 @@ export interface DescribedCommand {
 }
 
 export interface SharedCustomCommandOptions {
+  ns: StorageNamespace;
   includeImageSearch?: boolean;
 }
 
@@ -57,8 +59,8 @@ async function writeVfsOutput(
   return resolved;
 }
 
-function getProxyUrl(): string | undefined {
-  const config = loadSavedConfig();
+function getProxyUrl(ns: StorageNamespace): string | undefined {
+  const config = loadSavedConfig(ns);
   return config?.useProxy && config?.proxyUrl ? config.proxyUrl : undefined;
 }
 
@@ -370,203 +372,209 @@ const xlsxToCsv: DescribedCommand = {
   },
 };
 
-const webSearchCmd: DescribedCommand = {
-  promptSnippet:
-    "- web-search <query> [--max=N] [--region=REGION] [--time=d|w|m|y] [--page=N] [--json] — Search the web. Returns title, URL, and snippet for each result.",
-  command: defineCommand("web-search", async (args) => {
-    const { flags, positional } = parseFlags(args);
-    const query = positional.join(" ");
+function createWebSearchCmd(ns: StorageNamespace): DescribedCommand {
+  return {
+    promptSnippet:
+      "- web-search <query> [--max=N] [--region=REGION] [--time=d|w|m|y] [--page=N] [--json] — Search the web. Returns title, URL, and snippet for each result.",
+    command: defineCommand("web-search", async (args) => {
+      const { flags, positional } = parseFlags(args);
+      const query = positional.join(" ");
 
-    if (!query) {
-      return {
-        stdout: "",
-        stderr:
-          "Usage: web-search <query> [--max=N] [--region=REGION] [--time=d|w|m|y] [--page=N] [--json]\n  query    - Search query\n  --max    - Max results (default: 10)\n  --region - Region code, e.g. us-en, uk-en (default: us-en)\n  --time   - Time filter: d(ay), w(eek), m(onth), y(ear)\n  --page   - Page number (default: 1)\n  --json   - Output as JSON\n",
-        exitCode: 1,
-      };
-    }
-
-    try {
-      const webConfig = loadWebConfig();
-      const results = await searchWeb(
-        query,
-        {
-          maxResults: flags.max ? Number.parseInt(flags.max, 10) : 10,
-          region: flags.region,
-          timelimit: flags.time as "d" | "w" | "m" | "y" | undefined,
-          page: flags.page ? Number.parseInt(flags.page, 10) : undefined,
-        },
-        {
-          proxyUrl: getProxyUrl(),
-          apiKeys: webConfig.apiKeys,
-        },
-        webConfig.searchProvider,
-      );
-
-      if (results.length === 0) {
-        return { stdout: "No results found.", stderr: "", exitCode: 0 };
-      }
-
-      if (flags.json === "true") {
+      if (!query) {
         return {
-          stdout: JSON.stringify(results, null, 2),
-          stderr: "",
-          exitCode: 0,
+          stdout: "",
+          stderr:
+            "Usage: web-search <query> [--max=N] [--region=REGION] [--time=d|w|m|y] [--page=N] [--json]\n  query    - Search query\n  --max    - Max results (default: 10)\n  --region - Region code, e.g. us-en, uk-en (default: us-en)\n  --time   - Time filter: d(ay), w(eek), m(onth), y(ear)\n  --page   - Page number (default: 1)\n  --json   - Output as JSON\n",
+          exitCode: 1,
         };
       }
 
-      const lines = results.map(
-        (result, index) =>
-          `${index + 1}. ${result.title}\n   ${result.href}\n   ${result.body}`,
-      );
-      return {
-        stdout: lines.join("\n\n"),
-        stderr: "",
-        exitCode: 0,
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { stdout: "", stderr: msg, exitCode: 1 };
-    }
-  }),
-};
+      try {
+        const webConfig = loadWebConfig(ns);
+        const results = await searchWeb(
+          query,
+          {
+            maxResults: flags.max ? Number.parseInt(flags.max, 10) : 10,
+            region: flags.region,
+            timelimit: flags.time as "d" | "w" | "m" | "y" | undefined,
+            page: flags.page ? Number.parseInt(flags.page, 10) : undefined,
+          },
+          {
+            proxyUrl: getProxyUrl(ns),
+            apiKeys: webConfig.apiKeys,
+          },
+          webConfig.searchProvider,
+        );
 
-const webFetchCmd: DescribedCommand = {
-  promptSnippet:
-    "- web-fetch <url> <outfile> — Fetch a web page and extract its readable content to a file. Use head/grep/tail to read selectively.",
-  command: defineCommand("web-fetch", async (args, ctx) => {
-    const url = args[0];
-    const outFile = args[1];
+        if (results.length === 0) {
+          return { stdout: "No results found.", stderr: "", exitCode: 0 };
+        }
 
-    if (!url || !outFile) {
-      return {
-        stdout: "",
-        stderr:
-          "Usage: web-fetch <url> <outfile>\n  url      - URL to fetch\n  outfile  - Output file path\n\nFetches a URL and saves to a file.\n  - HTML pages: extracts readable content (Markdown)\n  - Binary files (PDF, DOCX, XLSX, etc.): downloads raw file\n  - Text/JSON/XML: saves as-is\n",
-        exitCode: 1,
-      };
-    }
+        if (flags.json === "true") {
+          return {
+            stdout: JSON.stringify(results, null, 2),
+            stderr: "",
+            exitCode: 0,
+          };
+        }
 
-    try {
-      const webConfig = loadWebConfig();
-      const result = await fetchWeb(
-        url,
-        {
-          proxyUrl: getProxyUrl(),
-          apiKeys: webConfig.apiKeys,
-        },
-        webConfig.fetchProvider,
-      );
-
-      if (result.kind === "text") {
-        const header = [
-          result.title ? `Title: ${result.title}` : "",
-          ...Object.entries(result.metadata || {}).map(
-            ([key, value]) => `${key}: ${value}`,
-          ),
-        ]
-          .filter(Boolean)
-          .join("\n");
-        const output = header ? `${header}\n\n${result.text}` : result.text;
-
-        await writeVfsOutput(ctx, outFile, output);
+        const lines = results.map(
+          (result, index) =>
+            `${index + 1}. ${result.title}\n   ${result.href}\n   ${result.body}`,
+        );
         return {
-          stdout: `Fetched text → ${outFile} (${result.text.length} chars, ${result.contentType})`,
+          stdout: lines.join("\n\n"),
           stderr: "",
           exitCode: 0,
         };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return { stdout: "", stderr: msg, exitCode: 1 };
       }
+    }),
+  };
+}
 
-      await writeVfsOutput(ctx, outFile, result.data);
+function createWebFetchCmd(ns: StorageNamespace): DescribedCommand {
+  return {
+    promptSnippet:
+      "- web-fetch <url> <outfile> — Fetch a web page and extract its readable content to a file. Use head/grep/tail to read selectively.",
+    command: defineCommand("web-fetch", async (args, ctx) => {
+      const url = args[0];
+      const outFile = args[1];
 
-      const size =
-        result.data.length >= 1024
-          ? `${Math.round(result.data.length / 1024)}KB`
-          : `${result.data.length}B`;
-
-      return {
-        stdout: `Downloaded → ${outFile} (${size}, ${result.contentType || "unknown type"})`,
-        stderr: "",
-        exitCode: 0,
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { stdout: "", stderr: msg, exitCode: 1 };
-    }
-  }),
-};
-
-const imageSearchCmd: DescribedCommand = {
-  promptSnippet:
-    "- image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.",
-  isAvailable: () => {
-    const webConfig = loadWebConfig();
-    return !!webConfig.apiKeys?.serper;
-  },
-  command: defineCommand("image-search", async (args) => {
-    const { flags, positional } = parseFlags(args);
-    const query = positional.join(" ");
-
-    if (!query) {
-      return {
-        stdout: "",
-        stderr:
-          "Usage: image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json]\n" +
-          "  query  - Image search query\n" +
-          "  --num  - Number of results (default: 10)\n" +
-          "  --page - Page number (default: 1)\n" +
-          "  --gl   - Country code, e.g. us, uk (default: us)\n" +
-          "  --hl   - Language code, e.g. en, fr (default: en)\n" +
-          "  --json - Output as JSON\n" +
-          "\nRequires a Serper API key configured in Settings > Web > API Keys.\n",
-        exitCode: 1,
-      };
-    }
-
-    try {
-      const webConfig = loadWebConfig();
-      const results = await searchImages(
-        query,
-        {
-          num: flags.num ? Number.parseInt(flags.num, 10) : undefined,
-          page: flags.page ? Number.parseInt(flags.page, 10) : undefined,
-          gl: flags.gl,
-          hl: flags.hl,
-        },
-        {
-          proxyUrl: getProxyUrl(),
-          apiKeys: webConfig.apiKeys,
-        },
-        webConfig.imageSearchProvider,
-      );
-
-      if (results.length === 0) {
-        return { stdout: "No images found.", stderr: "", exitCode: 0 };
-      }
-
-      if (flags.json === "true") {
+      if (!url || !outFile) {
         return {
-          stdout: JSON.stringify(results, null, 2),
-          stderr: "",
-          exitCode: 0,
+          stdout: "",
+          stderr:
+            "Usage: web-fetch <url> <outfile>\n  url      - URL to fetch\n  outfile  - Output file path\n\nFetches a URL and saves to a file.\n  - HTML pages: extracts readable content (Markdown)\n  - Binary files (PDF, DOCX, XLSX, etc.): downloads raw file\n  - Text/JSON/XML: saves as-is\n",
+          exitCode: 1,
         };
       }
 
-      const lines = results.map(
-        (result, index) =>
-          `${index + 1}. ${result.title}\n   Image: ${result.imageUrl} (${result.imageWidth}×${result.imageHeight})\n   Source: ${result.source} (${result.domain})\n   Page: ${result.link}`,
-      );
-      return {
-        stdout: lines.join("\n\n"),
-        stderr: "",
-        exitCode: 0,
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { stdout: "", stderr: msg, exitCode: 1 };
-    }
-  }),
-};
+      try {
+        const webConfig = loadWebConfig(ns);
+        const result = await fetchWeb(
+          url,
+          {
+            proxyUrl: getProxyUrl(ns),
+            apiKeys: webConfig.apiKeys,
+          },
+          webConfig.fetchProvider,
+        );
+
+        if (result.kind === "text") {
+          const header = [
+            result.title ? `Title: ${result.title}` : "",
+            ...Object.entries(result.metadata || {}).map(
+              ([key, value]) => `${key}: ${value}`,
+            ),
+          ]
+            .filter(Boolean)
+            .join("\n");
+          const output = header ? `${header}\n\n${result.text}` : result.text;
+
+          await writeVfsOutput(ctx, outFile, output);
+          return {
+            stdout: `Fetched text → ${outFile} (${result.text.length} chars, ${result.contentType})`,
+            stderr: "",
+            exitCode: 0,
+          };
+        }
+
+        await writeVfsOutput(ctx, outFile, result.data);
+
+        const size =
+          result.data.length >= 1024
+            ? `${Math.round(result.data.length / 1024)}KB`
+            : `${result.data.length}B`;
+
+        return {
+          stdout: `Downloaded → ${outFile} (${size}, ${result.contentType || "unknown type"})`,
+          stderr: "",
+          exitCode: 0,
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return { stdout: "", stderr: msg, exitCode: 1 };
+      }
+    }),
+  };
+}
+
+function createImageSearchCmd(ns: StorageNamespace): DescribedCommand {
+  return {
+    promptSnippet:
+      "- image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json] — Search for images. Returns image URLs, dimensions, source, and page link.",
+    isAvailable: () => {
+      const webConfig = loadWebConfig(ns);
+      return !!webConfig.apiKeys?.serper;
+    },
+    command: defineCommand("image-search", async (args) => {
+      const { flags, positional } = parseFlags(args);
+      const query = positional.join(" ");
+
+      if (!query) {
+        return {
+          stdout: "",
+          stderr:
+            "Usage: image-search <query> [--num=N] [--page=N] [--gl=COUNTRY] [--hl=LANG] [--json]\n" +
+            "  query  - Image search query\n" +
+            "  --num  - Number of results (default: 10)\n" +
+            "  --page - Page number (default: 1)\n" +
+            "  --gl   - Country code, e.g. us, uk (default: us)\n" +
+            "  --hl   - Language code, e.g. en, fr (default: en)\n" +
+            "  --json - Output as JSON\n" +
+            "\nRequires a Serper API key configured in Settings > Web > API Keys.\n",
+          exitCode: 1,
+        };
+      }
+
+      try {
+        const webConfig = loadWebConfig(ns);
+        const results = await searchImages(
+          query,
+          {
+            num: flags.num ? Number.parseInt(flags.num, 10) : undefined,
+            page: flags.page ? Number.parseInt(flags.page, 10) : undefined,
+            gl: flags.gl,
+            hl: flags.hl,
+          },
+          {
+            proxyUrl: getProxyUrl(ns),
+            apiKeys: webConfig.apiKeys,
+          },
+          webConfig.imageSearchProvider,
+        );
+
+        if (results.length === 0) {
+          return { stdout: "No images found.", stderr: "", exitCode: 0 };
+        }
+
+        if (flags.json === "true") {
+          return {
+            stdout: JSON.stringify(results, null, 2),
+            stderr: "",
+            exitCode: 0,
+          };
+        }
+
+        const lines = results.map(
+          (result, index) =>
+            `${index + 1}. ${result.title}\n   Image: ${result.imageUrl} (${result.imageWidth}×${result.imageHeight})\n   Source: ${result.source} (${result.domain})\n   Page: ${result.link}`,
+        );
+        return {
+          stdout: lines.join("\n\n"),
+          stderr: "",
+          exitCode: 0,
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return { stdout: "", stderr: msg, exitCode: 1 };
+      }
+    }),
+  };
+}
 
 export interface CustomCommandsResult {
   commands: CustomCommand[];
@@ -584,19 +592,20 @@ function collect(described: DescribedCommand[]): CustomCommandsResult {
 }
 
 export function getSharedCustomCommands(
-  options: SharedCustomCommandOptions = {},
+  options: SharedCustomCommandOptions,
 ): CustomCommandsResult {
+  const { ns } = options;
   const all: DescribedCommand[] = [
     pdfToText,
     pdfToImages,
     docxToText,
     xlsxToCsv,
-    webSearchCmd,
-    webFetchCmd,
+    createWebSearchCmd(ns),
+    createWebFetchCmd(ns),
   ];
 
   if (options.includeImageSearch) {
-    all.push(imageSearchCmd);
+    all.push(createImageSearchCmd(ns));
   }
 
   return collect(all);

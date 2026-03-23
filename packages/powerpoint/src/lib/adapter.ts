@@ -3,14 +3,22 @@ import { getOrCreateDocumentId } from "@office-agents/core";
 import SelectionIndicator from "./components/selection-indicator.svelte";
 import pptApiDts from "./docs/powerpoint-officejs-api.d.ts?raw";
 import { buildPowerPointSystemPrompt } from "./system-prompt";
-import { PPT_TOOLS } from "./tools";
+import { createPptTools } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
 
 /* global PowerPoint, Office */
 
+const STORAGE_NAMESPACE = {
+  dbName: "OpenPPTDB_v1",
+  dbVersion: 1,
+  localStoragePrefix: "openppt",
+  documentSettingsPrefix: "openppt",
+  documentIdSettingsKey: "openppt-presentation-id",
+};
+
 export function createPowerPointAdapter(): AppAdapter {
   return {
-    tools: PPT_TOOLS,
+    tools: (ctx) => createPptTools(ctx),
     customCommands: getCustomCommands,
     hasImageSearch: true,
     staticFiles: {
@@ -19,13 +27,7 @@ export function createPowerPointAdapter(): AppAdapter {
 
     appName: "OpenPPT",
     metadataTag: "ppt_context",
-    storageNamespace: {
-      dbName: "OpenPPTDB_v1",
-      dbVersion: 1,
-      localStoragePrefix: "openppt",
-      documentSettingsPrefix: "openppt",
-      documentIdSettingsKey: "openppt-presentation-id",
-    },
+    storageNamespace: STORAGE_NAMESPACE,
     appVersion: __APP_VERSION__,
     emptyStateMessage:
       "Start a conversation to create or edit your presentation",
@@ -33,7 +35,7 @@ export function createPowerPointAdapter(): AppAdapter {
     buildSystemPrompt: buildPowerPointSystemPrompt,
 
     getDocumentId: async () => {
-      return getOrCreateDocumentId();
+      return getOrCreateDocumentId(STORAGE_NAMESPACE);
     },
 
     getDocumentMetadata: async () => {
@@ -133,19 +135,16 @@ async function detectThemeDefault(
       return { isDefault: true, confidence: "high" };
     }
     if (matchCount >= total - 2) {
-      // Nearly all match — might be a minor tweak or variant
       return {
         isDefault: masterShapeCount <= 2,
         confidence: "medium",
       };
     }
-    // Significantly different colors — custom theme
     return {
       isDefault: false,
       confidence: matchCount >= 3 ? "medium" : "high",
     };
   } catch {
-    // ThemeColorScheme API may not be available (older hosts)
     return { isDefault: true, confidence: "low" };
   }
 }
@@ -176,13 +175,11 @@ async function getPresentationMetadata(): Promise<object> {
 
     await context.sync();
 
-    // Load layouts for each master
     for (const master of masters.items) {
       master.layouts.load("items/name,items/id");
     }
     await context.sync();
 
-    // Determine if content exists (check shapes across ALL slides)
     let hasContent = false;
     if (slides.items.length > 0) {
       const allShapes = slides.items.map((slide) => {
@@ -194,20 +191,17 @@ async function getPresentationMetadata(): Promise<object> {
       hasContent = allShapes.some((shapes) => shapes.items.length > 0);
     }
 
-    // Detect whether the theme is the default Office theme
     const themeResult =
       masters.items.length > 0
         ? await detectThemeDefault(masters.items[0], context)
         : { isDefault: true, confidence: "low" as const };
 
-    // Build slide ID to index map
     const idToIndex = new Map(slides.items.map((s, i) => [s.id, i]));
     const selectedIndices = selectedSlides.items.map((s) => ({
       slideId: s.id,
       positionOneIndexed: (idToIndex.get(s.id) ?? 0) + 1,
     }));
 
-    // Build selected shapes info
     const selectedShapes =
       selectedShapesCollection?.items.map((s) => ({
         name: s.name,

@@ -1,57 +1,43 @@
-// Chat UI (core-only)
-
 // Re-export everything from SDK
 export {
-  // Runtime
+  AgentContext,
+  type AgentContextOptions,
   AgentRuntime,
-  // Provider config
   API_TYPES,
-  // Skills
   addSkill,
-  // Message utilities
   agentMessagesToChatMessages,
   applyProxyToModel,
-  // Tools
-  bashTool,
-  // OAuth
   buildAuthorizationUrl,
   buildCustomModel,
   buildSkillsPromptSection,
   type ChatMessage,
-  // Storage
   type ChatSession,
-  configureNamespace,
+  createBashTool,
+  createReadTool,
   createSession,
-  // Truncation
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
   type DescribedCommand,
   defineTool,
-  // VFS
-  deleteFile,
   deleteSession,
   deriveStats,
-  // Lockdown
+  detectImageMimeType,
   ensureLockdown,
   exchangeOAuthCode,
   extractPartsFromAssistantMessage,
   type FetchProvider,
   type FetchResult,
   fetchWeb,
-  fileExists,
   formatSize,
   generateId,
   generatePKCE,
-  getBash,
   getFileType,
   getInstalledSkills,
-  getNamespace,
   getOrCreateCurrentSession,
   getOrCreateDocumentId,
   getSession,
   getSessionMessageCount,
   getSharedCustomCommands,
-  getVfs,
   type ImageSearchOptions,
   type ImageSearchProvider,
   type ImageSearchResult,
@@ -59,12 +45,10 @@ export {
   listImageSearchProviders,
   listSearchProviders,
   listSessions,
-  listUploads,
   loadOAuthCredentials,
   loadPdfDocument,
   loadSavedConfig,
   loadVfsFiles,
-  // Web
   loadWebConfig,
   type MessagePart,
   OAUTH_PROVIDERS,
@@ -74,16 +58,11 @@ export {
   parseSkillMeta,
   type RuntimeAdapter,
   type RuntimeState,
-  readFile,
-  readFileBuffer,
-  readTool,
   refreshOAuthToken,
   removeOAuthCredentials,
   removeSkill,
   renameSession,
-  resetVfs,
   resizeImage,
-  restoreVfs,
   type SearchOptions,
   type SearchProvider,
   type SearchResult,
@@ -91,7 +70,6 @@ export {
   type SkillInput,
   type SkillMeta,
   type StorageNamespace,
-  // Sandbox
   sandboxedEval,
   saveConfig,
   saveOAuthCredentials,
@@ -100,10 +78,6 @@ export {
   saveWebConfig,
   searchImages,
   searchWeb,
-  setCustomCommands,
-  setSkillFiles,
-  setStaticFiles,
-  snapshotVfs,
   stripEnrichment,
   syncSkillsToVfs,
   THINKING_LEVELS,
@@ -119,7 +93,6 @@ export {
   type UploadedFile,
   type WebConfig,
   type WebContext,
-  writeFile,
 } from "@office-agents/sdk";
 export type {
   AppAdapter,

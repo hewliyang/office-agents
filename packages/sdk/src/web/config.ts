@@ -1,3 +1,5 @@
+import type { StorageNamespace } from "../context";
+
 export interface WebConfig {
   searchProvider: string;
   imageSearchProvider: string;
@@ -9,10 +11,8 @@ export interface WebConfig {
   };
 }
 
-import { getNamespace } from "../storage/namespace";
-
-function webConfigKey(): string {
-  return `${getNamespace().localStoragePrefix}-web-config`;
+function webConfigKey(ns: StorageNamespace): string {
+  return `${ns.localStoragePrefix}-web-config`;
 }
 
 const DEFAULT_WEB_CONFIG: WebConfig = {
@@ -22,9 +22,9 @@ const DEFAULT_WEB_CONFIG: WebConfig = {
   apiKeys: {},
 };
 
-export function loadWebConfig(): WebConfig {
+export function loadWebConfig(ns: StorageNamespace): WebConfig {
   try {
-    const raw = localStorage.getItem(webConfigKey());
+    const raw = localStorage.getItem(webConfigKey(ns));
     if (!raw) return { ...DEFAULT_WEB_CONFIG };
     const parsed = JSON.parse(raw) as Partial<WebConfig>;
     return {
@@ -43,8 +43,11 @@ export function loadWebConfig(): WebConfig {
   }
 }
 
-export function saveWebConfig(config: Partial<WebConfig>) {
-  const current = loadWebConfig();
+export function saveWebConfig(
+  ns: StorageNamespace,
+  config: Partial<WebConfig>,
+) {
+  const current = loadWebConfig(ns);
   const next: WebConfig = {
     searchProvider: config.searchProvider || current.searchProvider,
     imageSearchProvider:
@@ -55,5 +58,5 @@ export function saveWebConfig(config: Partial<WebConfig>) {
       ...(config.apiKeys || {}),
     },
   };
-  localStorage.setItem(webConfigKey(), JSON.stringify(next));
+  localStorage.setItem(webConfigKey(ns), JSON.stringify(next));
 }

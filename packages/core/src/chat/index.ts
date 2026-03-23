@@ -6,6 +6,7 @@ export type {
 export type {
   AppAdapter,
   CustomCommandsResult,
+  StorageNamespace,
   ToolExtrasProps,
 } from "./app-adapter";
 export { default as ChatInterface } from "./chat-interface.svelte";

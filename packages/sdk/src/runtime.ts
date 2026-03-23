@@ -13,6 +13,7 @@ import {
   type Model,
   streamSimple,
 } from "@mariozechner/pi-ai";
+import { AgentContext, type StorageNamespace } from "./context";
 import {
   agentMessagesToChatMessages,
   type ChatMessage,
@@ -52,20 +53,10 @@ import {
   saveSession,
   saveVfsFiles,
 } from "./storage";
-import {
-  type CustomCommandsResult,
-  deleteFile,
-  listUploads,
-  resetVfs,
-  restoreVfs,
-  setCustomCommands,
-  setStaticFiles,
-  snapshotVfs,
-  writeFile,
-} from "./vfs";
+import type { CustomCommandsResult } from "./vfs";
 
 export interface RuntimeAdapter {
-  tools: AgentTool[];
+  tools: AgentTool[] | ((ctx: AgentContext) => AgentTool[]);
   buildSystemPrompt: (skills: SkillMeta[], commandSnippets: string[]) => string;
   getDocumentId: () => Promise<string>;
   getDocumentMetadata?: () => Promise<{
@@ -75,7 +66,8 @@ export interface RuntimeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
   metadataTag?: string;
   staticFiles?: Record<string, string>;
-  customCommands?: () => CustomCommandsResult;
+  customCommands?: (ns: StorageNamespace) => CustomCommandsResult;
+  storageNamespace?: Partial<StorageNamespace>;
 }
 
 export interface UploadedFile {
@@ -107,6 +99,8 @@ function thinkingLevelToAgent(level: ThinkingLevel): AgentThinkingLevel {
 }
 
 export class AgentRuntime {
+  readonly context: AgentContext;
+
   private agent: Agent | null = null;
   private config: ProviderConfig | null = null;
   private pendingConfig: ProviderConfig | null = null;
@@ -122,9 +116,21 @@ export class AgentRuntime {
   private listeners: Set<StateListener> = new Set();
   private state: RuntimeState;
 
-  constructor(adapter: RuntimeAdapter) {
+  private get ns(): StorageNamespace {
+    return this.context.namespace;
+  }
+
+  private get tools(): AgentTool[] {
+    return typeof this.adapter.tools === "function"
+      ? this.adapter.tools(this.context)
+      : this.adapter.tools;
+  }
+
+  constructor(adapter: RuntimeAdapter, context: AgentContext) {
     this.adapter = adapter;
-    const saved = loadSavedConfig();
+    this.context = context;
+
+    const saved = loadSavedConfig(this.ns);
     const validConfig =
       saved?.provider && saved?.apiKey && saved?.model ? saved : null;
     this.followMode = validConfig?.followMode ?? true;
@@ -200,7 +206,7 @@ export class AgentRuntime {
     if (config.authMethod !== "oauth") {
       return config.apiKey;
     }
-    const creds = loadOAuthCredentials(config.provider);
+    const creds = loadOAuthCredentials(this.ns, config.provider);
     if (!creds) return config.apiKey;
     if (Date.now() < creds.expires) {
       return creds.access;
@@ -211,7 +217,7 @@ export class AgentRuntime {
       config.proxyUrl,
       config.useProxy,
     );
-    saveOAuthCredentials(config.provider, refreshed);
+    saveOAuthCredentials(this.ns, config.provider, refreshed);
     return refreshed.access;
   }
 
@@ -443,7 +449,9 @@ export class AgentRuntime {
     }
 
     if (this.adapter.customCommands) {
-      this.commandSnippets = this.adapter.customCommands().promptSnippets;
+      this.commandSnippets = this.adapter.customCommands(
+        this.ns,
+      ).promptSnippets;
     }
 
     const systemPrompt = this.adapter.buildSystemPrompt(
@@ -456,7 +464,7 @@ export class AgentRuntime {
         model: proxiedModel,
         systemPrompt,
         thinkingLevel: thinkingLevelToAgent(config.thinking),
-        tools: this.adapter.tools,
+        tools: this.tools,
         messages: existingMessages,
       },
       streamFn: async (model, context, options) => {
@@ -561,11 +569,11 @@ export class AgentRuntime {
   clearMessages() {
     this.abort();
     this.agent?.reset();
-    resetVfs();
+    this.context.reset();
     if (this.currentSessionId) {
       Promise.all([
-        saveSession(this.currentSessionId, []),
-        saveVfsFiles(this.currentSessionId, []),
+        saveSession(this.ns, this.currentSessionId, []),
+        saveVfsFiles(this.ns, this.currentSessionId, []),
       ]).catch(console.error);
     }
     this.update({
@@ -578,7 +586,7 @@ export class AgentRuntime {
 
   private async refreshSessions() {
     if (!this.documentId) return;
-    const sessions = await listSessions(this.documentId);
+    const sessions = await listSessions(this.ns, this.documentId);
     this.update({ sessions });
   }
 
@@ -587,8 +595,8 @@ export class AgentRuntime {
     if (this.isStreaming) return;
     try {
       this.agent?.reset();
-      resetVfs();
-      const session = await createSession(this.documentId);
+      this.context.reset();
+      const session = await createSession(this.ns, this.documentId);
       this.currentSessionId = session.id;
       await this.refreshSessions();
       this.update({
@@ -609,18 +617,18 @@ export class AgentRuntime {
     this.agent?.reset();
     try {
       const [session, vfsFiles] = await Promise.all([
-        getSession(sessionId),
-        loadVfsFiles(sessionId),
+        getSession(this.ns, sessionId),
+        loadVfsFiles(this.ns, sessionId),
       ]);
       if (!session) return;
-      await restoreVfs(vfsFiles);
+      await this.context.restoreVfs(vfsFiles);
       this.currentSessionId = session.id;
 
       if (session.agentMessages.length > 0 && this.agent) {
         this.agent.replaceMessages(session.agentMessages);
       }
 
-      const uploadNames = await listUploads();
+      const uploadNames = await this.context.listUploads();
       const stats = deriveStats(session.agentMessages);
       this.update({
         messages: agentMessagesToChatMessages(
@@ -646,18 +654,21 @@ export class AgentRuntime {
     if (this.isStreaming) return;
     this.agent?.reset();
     const deletedId = this.currentSessionId;
-    await Promise.all([deleteSession(deletedId), saveVfsFiles(deletedId, [])]);
-    const session = await getOrCreateCurrentSession(this.documentId);
+    await Promise.all([
+      deleteSession(this.ns, deletedId),
+      saveVfsFiles(this.ns, deletedId, []),
+    ]);
+    const session = await getOrCreateCurrentSession(this.ns, this.documentId);
     this.currentSessionId = session.id;
-    const vfsFiles = await loadVfsFiles(session.id);
-    await restoreVfs(vfsFiles);
+    const vfsFiles = await loadVfsFiles(this.ns, session.id);
+    await this.context.restoreVfs(vfsFiles);
 
     if (session.agentMessages.length > 0 && this.agent) {
       this.agent.replaceMessages(session.agentMessages);
     }
 
     await this.refreshSessions();
-    const uploadNames = await listUploads();
+    const uploadNames = await this.context.listUploads();
     const stats = deriveStats(session.agentMessages);
     this.update({
       messages: agentMessagesToChatMessages(
@@ -679,13 +690,13 @@ export class AgentRuntime {
     const sessionId = this.currentSessionId;
     const agentMessages = this.agent?.state.messages ?? [];
     try {
-      const vfsFiles = await snapshotVfs();
+      const vfsFiles = await this.context.snapshotVfs();
       await Promise.all([
-        saveSession(sessionId, agentMessages),
-        saveVfsFiles(sessionId, vfsFiles),
+        saveSession(this.ns, sessionId, agentMessages),
+        saveVfsFiles(this.ns, sessionId, vfsFiles),
       ]);
       await this.refreshSessions();
-      const updated = await getSession(sessionId);
+      const updated = await getSession(this.ns, sessionId);
       if (updated) {
         this.update({ currentSession: updated });
       }
@@ -699,44 +710,39 @@ export class AgentRuntime {
     if (this.sessionLoaded) return;
     this.sessionLoaded = true;
 
-    if (this.adapter.staticFiles) {
-      setStaticFiles(this.adapter.staticFiles);
-    }
     if (this.adapter.customCommands) {
-      const customCmds = this.adapter.customCommands;
-      const result = customCmds();
+      const result = this.adapter.customCommands(this.ns);
       this.commandSnippets = result.promptSnippets;
-      setCustomCommands(() => result.commands);
     }
 
     try {
       const id = await this.adapter.getDocumentId();
       this.documentId = id;
 
-      const skills = await getInstalledSkills();
+      const skills = await getInstalledSkills(this.ns);
       this.skills = skills;
-      await syncSkillsToVfs();
+      await syncSkillsToVfs(this.ns, this.context);
 
-      const saved = loadSavedConfig();
+      const saved = loadSavedConfig(this.ns);
       if (saved?.provider && saved?.apiKey && saved?.model) {
         this.applyConfig(saved);
       }
 
-      const session = await getOrCreateCurrentSession(id);
+      const session = await getOrCreateCurrentSession(this.ns, id);
       this.currentSessionId = session.id;
       const [sessions, vfsFiles] = await Promise.all([
-        listSessions(id),
-        loadVfsFiles(session.id),
+        listSessions(this.ns, id),
+        loadVfsFiles(this.ns, session.id),
       ]);
       if (vfsFiles.length > 0) {
-        await restoreVfs(vfsFiles);
+        await this.context.restoreVfs(vfsFiles);
       }
 
       if (session.agentMessages.length > 0 && this.agent) {
         this.agent.replaceMessages(session.agentMessages);
       }
 
-      const uploadNames = await listUploads();
+      const uploadNames = await this.context.listUploads();
       const stats = deriveStats(session.agentMessages);
       this.update({
         messages: agentMessagesToChatMessages(
@@ -763,7 +769,7 @@ export class AgentRuntime {
     this.update({ isUploading: true });
     try {
       for (const file of files) {
-        await writeFile(file.name, file.data);
+        await this.context.writeFile(file.name, file.data);
         const uploads = [...this.state.uploads];
         const exists = uploads.findIndex((u) => u.name === file.name);
         if (exists !== -1) {
@@ -774,8 +780,8 @@ export class AgentRuntime {
         this.update({ uploads });
       }
       if (this.currentSessionId) {
-        const snapshot = await snapshotVfs();
-        await saveVfsFiles(this.currentSessionId, snapshot);
+        const snapshot = await this.context.snapshotVfs();
+        await saveVfsFiles(this.ns, this.currentSessionId, snapshot);
       }
       this.bumpVfs();
     } catch (err) {
@@ -787,13 +793,13 @@ export class AgentRuntime {
 
   async removeUpload(name: string) {
     try {
-      await deleteFile(name);
+      await this.context.deleteFile(name);
       this.update({
         uploads: this.state.uploads.filter((u) => u.name !== name),
       });
       if (this.currentSessionId) {
-        const snapshot = await snapshotVfs();
-        await saveVfsFiles(this.currentSessionId, snapshot);
+        const snapshot = await this.context.snapshotVfs();
+        await saveVfsFiles(this.ns, this.currentSessionId, snapshot);
       }
       this.bumpVfs();
     } catch (err) {
@@ -805,7 +811,7 @@ export class AgentRuntime {
   }
 
   private async refreshSkillsAndRebuildAgent() {
-    this.skills = await getInstalledSkills();
+    this.skills = await getInstalledSkills(this.ns);
     this.update({ skills: this.skills });
     if (this.state.providerConfig) {
       this.applyConfig(this.state.providerConfig);
@@ -815,7 +821,7 @@ export class AgentRuntime {
   async installSkill(inputs: { path: string; data: Uint8Array }[]) {
     if (inputs.length === 0) return;
     try {
-      await addSkill(inputs);
+      await addSkill(this.ns, this.context, inputs);
       await this.refreshSkillsAndRebuildAgent();
     } catch (err) {
       console.error("[Runtime] Failed to install skill:", err);
@@ -827,7 +833,7 @@ export class AgentRuntime {
 
   async uninstallSkill(name: string) {
     try {
-      await removeSkill(name);
+      await removeSkill(this.ns, this.context, name);
       await this.refreshSkillsAndRebuildAgent();
     } catch (err) {
       console.error("[Runtime] Failed to uninstall skill:", err);
@@ -842,7 +848,7 @@ export class AgentRuntime {
       ...this.state.providerConfig,
       followMode: newFollowMode,
     };
-    saveConfig(newConfig);
+    saveConfig(this.ns, newConfig);
     this.update({ providerConfig: newConfig });
   }
 
@@ -852,7 +858,7 @@ export class AgentRuntime {
       ...this.state.providerConfig,
       expandToolCalls: !this.state.providerConfig.expandToolCalls,
     };
-    saveConfig(newConfig);
+    saveConfig(this.ns, newConfig);
     this.update({ providerConfig: newConfig });
   }
 

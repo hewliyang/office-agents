@@ -41,7 +41,9 @@ interface BridgeExecutableTool {
 }
 
 interface BridgeAdapter {
-  tools: BridgeExecutableTool[];
+  tools:
+    | BridgeExecutableTool[]
+    | ((...args: unknown[]) => BridgeExecutableTool[]);
   appName?: string;
   appVersion?: string;
   metadataTag?: string;
@@ -53,8 +55,8 @@ interface BridgeAdapter {
   onToolResult?: (toolCallId: string, result: string, isError: boolean) => void;
 }
 
-interface BridgeVfsAdapter {
-  snapshot: () => Promise<{ path: string; data: Uint8Array }[]>;
+export interface BridgeVfsAdapter {
+  snapshotVfs: () => Promise<{ path: string; data: Uint8Array }[]>;
   readFile: (path: string) => Promise<string>;
   readFileBuffer: (path: string) => Promise<Uint8Array>;
   writeFile: (path: string, content: string | Uint8Array) => Promise<void>;
@@ -141,8 +143,20 @@ function resolveServerUrl(explicitUrl?: string): string {
   return normalizeBridgeUrl(undefined, "ws");
 }
 
-function getToolDefinitions(adapter: BridgeAdapter): BridgeToolDefinition[] {
-  return ((adapter.tools ?? []) as BridgeExecutableTool[]).map((tool) => ({
+function resolveTools(
+  adapter: BridgeAdapter,
+  vfs?: BridgeVfsAdapter,
+): BridgeExecutableTool[] {
+  const tools = adapter.tools ?? [];
+  if (typeof tools === "function") return tools(vfs) as BridgeExecutableTool[];
+  return tools as BridgeExecutableTool[];
+}
+
+function getToolDefinitions(
+  adapter: BridgeAdapter,
+  vfs?: BridgeVfsAdapter,
+): BridgeToolDefinition[] {
+  return resolveTools(adapter, vfs).map((tool) => ({
     name: tool.name,
     label: tool.label,
     description: tool.description,
@@ -154,6 +168,7 @@ async function captureSessionSnapshot(
   app: string,
   adapter: BridgeAdapter,
   instanceId: string,
+  vfs?: BridgeVfsAdapter,
   previous?: BridgeSessionSnapshot | null,
 ): Promise<BridgeSessionSnapshot> {
   const documentId = await adapter.getDocumentId();
@@ -184,7 +199,7 @@ async function captureSessionSnapshot(
     metadataTag: adapter.metadataTag,
     documentId,
     documentMetadata: meta?.metadata,
-    tools: getToolDefinitions(adapter),
+    tools: getToolDefinitions(adapter, vfs),
     host: hostInfo,
     connectedAt: previous?.connectedAt ?? now,
     updatedAt: now,
@@ -247,6 +262,7 @@ export function startOfficeBridge(
       options.app,
       options.adapter,
       instanceId,
+      options.vfs,
       state.snapshot,
     );
     state.snapshot = snapshot;
@@ -258,7 +274,7 @@ export function startOfficeBridge(
     toolName: string,
     args: unknown,
   ): Promise<BridgeToolExecutionResult> => {
-    const tool = ((options.adapter.tools ?? []) as BridgeExecutableTool[]).find(
+    const tool = resolveTools(options.adapter, options.vfs).find(
       (candidate) => candidate.name === toolName,
     );
     if (!tool) {
@@ -316,7 +332,7 @@ export function startOfficeBridge(
   };
 
   const listVfs = async (params: BridgeVfsListParams | undefined) => {
-    const files = await requireVfs().snapshot();
+    const files = await requireVfs().snapshotVfs();
     const prefix = params?.prefix?.trim();
     const entries: BridgeVfsEntry[] = files
       .filter((file) => !prefix || file.path.startsWith(prefix))

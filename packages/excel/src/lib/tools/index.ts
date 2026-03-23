@@ -1,7 +1,7 @@
-export { bashTool, readTool } from "@office-agents/core";
+export { createBashTool, createReadTool } from "@office-agents/core";
 export { clearCellRangeTool } from "./clear-cell-range";
 export { copyToTool } from "./copy-to";
-export { evalOfficeJsTool } from "./eval-officejs";
+export { createEvalOfficeJsTool } from "./eval-officejs";
 export { getAllObjectsTool } from "./get-all-objects";
 export { getCellRangesTool } from "./get-cell-ranges";
 export { getRangeAsCsvTool } from "./get-range-as-csv";
@@ -20,10 +20,11 @@ export {
   toolText,
 } from "./types";
 
-import { bashTool, readTool } from "@office-agents/core";
+import type { AgentContext } from "@office-agents/core";
+import { createBashTool, createReadTool } from "@office-agents/core";
 import { clearCellRangeTool } from "./clear-cell-range";
 import { copyToTool } from "./copy-to";
-import { evalOfficeJsTool } from "./eval-officejs";
+import { createEvalOfficeJsTool } from "./eval-officejs";
 import { getAllObjectsTool } from "./get-all-objects";
 import { getCellRangesTool } from "./get-cell-ranges";
 import { getRangeAsCsvTool } from "./get-range-as-csv";
@@ -35,23 +36,25 @@ import { screenshotRangeTool } from "./screenshot-range";
 import { searchDataTool } from "./search-data";
 import { setCellRangeTool } from "./set-cell-range";
 
-export const EXCEL_TOOLS = [
-  // fs tools
-  readTool,
-  bashTool,
-  // Excel read tools
-  getCellRangesTool,
-  getRangeAsCsvTool,
-  searchDataTool,
-  screenshotRangeTool,
-  getAllObjectsTool,
-  // Excel write tools
-  setCellRangeTool,
-  clearCellRangeTool,
-  copyToTool,
-  modifySheetStructureTool,
-  modifyWorkbookStructureTool,
-  resizeRangeTool,
-  modifyObjectTool,
-  evalOfficeJsTool,
-];
+export function createExcelTools(ctx: AgentContext) {
+  return [
+    // fs tools
+    createReadTool(ctx),
+    createBashTool(ctx),
+    // Excel read tools
+    getCellRangesTool,
+    getRangeAsCsvTool,
+    searchDataTool,
+    screenshotRangeTool,
+    getAllObjectsTool,
+    // Excel write tools
+    setCellRangeTool,
+    clearCellRangeTool,
+    copyToTool,
+    modifySheetStructureTool,
+    modifyWorkbookStructureTool,
+    resizeRangeTool,
+    modifyObjectTool,
+    createEvalOfficeJsTool(ctx),
+  ];
+}

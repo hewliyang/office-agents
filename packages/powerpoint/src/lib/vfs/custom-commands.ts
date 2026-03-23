@@ -2,6 +2,7 @@ import {
   type CustomCommandsResult,
   type DescribedCommand,
   getSharedCustomCommands,
+  type StorageNamespace,
 } from "@office-agents/core";
 import { defineCommand } from "just-bash/browser";
 import { safeRun, withSlideZip } from "../pptx/slide-zip";
@@ -782,13 +783,16 @@ const insertIconCmd: DescribedCommand = {
   },
 };
 
-export function getCustomCommands(): CustomCommandsResult {
+export function getCustomCommands(ns: StorageNamespace): CustomCommandsResult {
   const local: DescribedCommand[] = [
     insertImageCmd,
     searchIconsCmd,
     insertIconCmd,
   ];
-  const shared = getSharedCustomCommands({ includeImageSearch: true });
+  const shared = getSharedCustomCommands({
+    ns,
+    includeImageSearch: true,
+  });
   return {
     commands: [...shared.commands, ...local.map((d) => d.command)],
     promptSnippets: [

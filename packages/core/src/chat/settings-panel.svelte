@@ -36,12 +36,13 @@
   const chat = getChatContext();
   const runtimeState = chat.state;
   const adapter = chat.adapter;
+  const ns = chat.context.namespace;
 
   let folderInputRef = $state<HTMLInputElement | null>(null);
   let fileInputRef = $state<HTMLInputElement | null>(null);
   let installing = $state(false);
 
-  const saved = loadSavedConfig();
+  const saved = loadSavedConfig(ns);
   let provider = $state(saved?.provider || "");
   let apiKey = $state(saved?.apiKey || "");
   let model = $state(saved?.model || "");
@@ -53,7 +54,7 @@
   let customBaseUrl = $state(saved?.customBaseUrl || "");
   let authMethod = $state<"apikey" | "oauth">(saved?.authMethod || "apikey");
 
-  const savedWeb = loadWebConfig();
+  const savedWeb = loadWebConfig(ns);
   let webSearchProvider = $state(savedWeb.searchProvider);
   let imageSearchProvider = $state(savedWeb.imageSearchProvider);
   let webFetchProvider = $state(savedWeb.fetchProvider);
@@ -64,7 +65,7 @@
 
   let oauthFlow = $state<OAuthFlowState>(
     saved?.authMethod === "oauth"
-      ? loadOAuthCredentials(saved.provider)
+      ? loadOAuthCredentials(ns, saved.provider)
         ? { step: "connected" }
         : { step: "idle" }
       : { step: "idle" },
@@ -157,7 +158,7 @@
       authMethod: nextAuthMethod,
     };
 
-    saveConfig(config);
+    saveConfig(ns, config);
     chat.setProviderConfig(config);
   }
 
@@ -179,7 +180,7 @@
     serperApiKey = updates.serperApiKey ?? serperApiKey;
     exaApiKey = updates.exaApiKey ?? exaApiKey;
 
-    saveWebConfig({
+    saveWebConfig(ns, {
       searchProvider: webSearchProvider,
       imageSearchProvider,
       fetchProvider: webFetchProvider,
@@ -214,7 +215,7 @@
 
   function handleAuthMethodChange(newMethod: "apikey" | "oauth") {
     if (newMethod === "oauth") {
-      const credentials = loadOAuthCredentials(provider);
+      const credentials = loadOAuthCredentials(ns, provider);
       if (credentials) {
         oauthFlow = { step: "connected" };
         updateAndSync({ authMethod: "oauth", apiKey: credentials.access });
@@ -262,7 +263,7 @@
         useProxy,
         proxyUrl,
       });
-      saveOAuthCredentials(provider, credentials);
+      saveOAuthCredentials(ns, provider, credentials);
       oauthFlow = { step: "connected" };
       oauthCodeInput = "";
       updateAndSync({ apiKey: credentials.access, authMethod: "oauth" });
@@ -275,7 +276,7 @@
   }
 
   function logoutOAuth() {
-    removeOAuthCredentials(provider);
+    removeOAuthCredentials(ns, provider);
     oauthFlow = { step: "idle" };
     updateAndSync({ authMethod: "apikey", apiKey: "" });
   }

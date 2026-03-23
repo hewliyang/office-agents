@@ -5,7 +5,7 @@ import SelectionIndicator from "./components/selection-indicator.svelte";
 import excelApiDts from "./docs/excel-officejs-api.d.ts?raw";
 import { getWorkbookMetadata, navigateTo } from "./excel/api";
 import { buildExcelSystemPrompt } from "./system-prompt";
-import { EXCEL_TOOLS } from "./tools";
+import { createExcelTools } from "./tools";
 import { getCustomCommands } from "./vfs/custom-commands";
 
 function parseCitationUri(
@@ -23,9 +23,17 @@ function parseCitationUri(
   return Number.isNaN(sheetId) ? null : { sheetId, range };
 }
 
+const STORAGE_NAMESPACE = {
+  dbName: "OpenExcelDB_v3",
+  dbVersion: 30,
+  localStoragePrefix: "openexcel",
+  documentSettingsPrefix: "openexcel",
+  documentIdSettingsKey: "openexcel-workbook-id",
+};
+
 export function createExcelAdapter(): AppAdapter {
   return {
-    tools: EXCEL_TOOLS,
+    tools: (ctx) => createExcelTools(ctx),
     customCommands: getCustomCommands,
     staticFiles: {
       "/home/user/docs/excel-officejs-api.d.ts": excelApiDts,
@@ -33,20 +41,14 @@ export function createExcelAdapter(): AppAdapter {
 
     appName: "OpenExcel",
     metadataTag: "wb_context",
-    storageNamespace: {
-      dbName: "OpenExcelDB_v3",
-      dbVersion: 30,
-      localStoragePrefix: "openexcel",
-      documentSettingsPrefix: "openexcel",
-      documentIdSettingsKey: "openexcel-workbook-id",
-    },
+    storageNamespace: STORAGE_NAMESPACE,
     appVersion: __APP_VERSION__,
     emptyStateMessage: "Start a conversation to interact with your Excel data",
     SelectionIndicator,
     buildSystemPrompt: buildExcelSystemPrompt,
 
     getDocumentId: async () => {
-      return getOrCreateDocumentId();
+      return getOrCreateDocumentId(STORAGE_NAMESPACE);
     },
 
     getDocumentMetadata: async () => {
