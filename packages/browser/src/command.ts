@@ -1,4 +1,4 @@
-import { Browser } from "./browser.js";
+import { Browser, type BrowserOptions } from "./browser.js";
 import type { BrowserProvider } from "./providers/types.js";
 
 let activeBrowser: Browser | null = null;
@@ -42,6 +42,7 @@ function emitSessionChange(): void {
 export interface BrowseCommandConfig {
   getProvider: () => BrowserProvider | null;
   writeFile?: (path: string, data: Uint8Array) => Promise<void>;
+  launchBrowser?: (options: BrowserOptions) => Promise<Browser>;
 }
 
 let config: BrowseCommandConfig | null = null;
@@ -229,13 +230,13 @@ function parseSnapshotOptions(args: string[]): {
     } else if (arg === "-d" || arg === "--depth") {
       const value = args[i + 1];
       const depth = value ? parseInt(value, 10) : NaN;
-      if (!isNaN(depth)) {
+      if (!Number.isNaN(depth)) {
         options.depth = depth;
         i += 1;
       }
     } else if (arg.startsWith("--depth=")) {
       const depth = parseInt(arg.slice("--depth=".length), 10);
-      if (!isNaN(depth)) options.depth = depth;
+      if (!Number.isNaN(depth)) options.depth = depth;
     }
   }
 
@@ -288,7 +289,8 @@ export async function executeBrowseCommand(
           };
         }
         await closeAndClearActiveBrowser();
-        activeBrowser = await Browser.launch({ provider: getProvider() });
+        const launchBrowser = config?.launchBrowser ?? Browser.launch;
+        activeBrowser = await launchBrowser({ provider: getProvider() });
         emitSessionChange();
         await activeBrowser.page.goto(url, {
           waitUntil: flags.wait ?? "load",
@@ -634,7 +636,7 @@ export async function executeBrowseCommand(
         const browser = requireBrowser();
         const x = parseFloat(cmdArgs[0]);
         const y = parseFloat(cmdArgs[1]);
-        if (isNaN(x) || isNaN(y)) {
+        if (Number.isNaN(x) || Number.isNaN(y)) {
           return {
             stdout: "",
             stderr: "Usage: browse click-xy <x> <y>",
@@ -705,7 +707,7 @@ export async function executeBrowseCommand(
         const browser = requireBrowser();
         const x = parseFloat(cmdArgs[0]);
         const y = parseFloat(cmdArgs[1]);
-        if (!isNaN(x) && !isNaN(y) && cmdArgs.length >= 2) {
+        if (!Number.isNaN(x) && !Number.isNaN(y) && cmdArgs.length >= 2) {
           await browser.page.hover(x, y);
         } else {
           const target = cmdArgs[0];
@@ -797,7 +799,7 @@ export async function executeBrowseCommand(
       case "scroll": {
         const browser = requireBrowser();
         const [sx, sy, dx, dy] = cmdArgs.map(parseFloat);
-        if ([sx, sy, dx, dy].some(isNaN)) {
+        if ([sx, sy, dx, dy].some(Number.isNaN)) {
           return {
             stdout: "",
             stderr: "Usage: browse scroll <x> <y> <deltaX> <deltaY>",
@@ -829,7 +831,7 @@ export async function executeBrowseCommand(
         const browser = requireBrowser();
         const w = parseInt(cmdArgs[0], 10);
         const h = parseInt(cmdArgs[1], 10);
-        if (isNaN(w) || isNaN(h)) {
+        if (Number.isNaN(w) || Number.isNaN(h)) {
           return {
             stdout: "",
             stderr: "Usage: browse viewport <width> <height>",
@@ -854,7 +856,7 @@ export async function executeBrowseCommand(
             const w = parseInt(cmdArgs[1], 10);
             const h = parseInt(cmdArgs[2], 10);
             const scale = cmdArgs[3] ? parseFloat(cmdArgs[3]) : undefined;
-            if (isNaN(w) || isNaN(h)) {
+            if (Number.isNaN(w) || Number.isNaN(h)) {
               return {
                 stdout: "",
                 stderr: "Usage: browse set viewport <width> <height> [scale]",
@@ -910,7 +912,7 @@ export async function executeBrowseCommand(
           case "geo": {
             const lat = parseFloat(cmdArgs[1]);
             const lng = parseFloat(cmdArgs[2]);
-            if (isNaN(lat) || isNaN(lng)) {
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
               return {
                 stdout: "",
                 stderr: "Usage: browse set geo <lat> <lng>",
@@ -983,7 +985,7 @@ export async function executeBrowseCommand(
           await browser.page.waitForLoad(cmdArgs[1] ?? "load", timeout);
         } else if (cmdArgs[0] === "timeout") {
           const ms = parseInt(cmdArgs[1], 10);
-          if (isNaN(ms))
+          if (Number.isNaN(ms))
             return {
               stdout: "",
               stderr: "Usage: browse wait timeout <ms>",
@@ -1104,7 +1106,7 @@ export async function executeBrowseCommand(
         if (sub === "close") {
           const index =
             cmdArgs[1] !== undefined ? parseInt(cmdArgs[1], 10) : undefined;
-          if (cmdArgs[1] !== undefined && isNaN(index!)) {
+          if (cmdArgs[1] !== undefined && Number.isNaN(index!)) {
             return {
               stdout: "",
               stderr: "Usage: browse tab close [index]",
@@ -1115,7 +1117,7 @@ export async function executeBrowseCommand(
           return { stdout: output(tabs, true), stderr: "", exitCode: 0 };
         }
         const index = parseInt(sub, 10);
-        if (isNaN(index)) {
+        if (Number.isNaN(index)) {
           return {
             stdout: "",
             stderr: "Usage: browse tab [list|new|close|<index>]",

@@ -1,5 +1,5 @@
 import type { Protocol } from "devtools-protocol/types/protocol.js";
-import { CdpSession, type CdpClient } from "./cdp.js";
+import { type CdpClient, CdpSession } from "./cdp.js";
 import {
   captureSnapshot,
   type Snapshot,
@@ -136,7 +136,7 @@ export class Page {
       throw new Error("Could not find or create a page target");
     }
 
-    return this.attachToTarget(cdp, pageTarget.targetId);
+    return Page.attachToTarget(cdp, pageTarget.targetId);
   }
 
   static async attachToTarget(cdp: CdpClient, targetId: string): Promise<Page> {

@@ -1,4 +1,3 @@
-import { disposeBrowseCommand } from "@office-agents/browser";
 import {
   Agent,
   type AgentEvent,
@@ -14,6 +13,7 @@ import {
   type Model,
   streamSimple,
 } from "@mariozechner/pi-ai";
+import { disposeBrowseCommand } from "@office-agents/browser";
 import {
   agentMessagesToChatMessages,
   type ChatMessage,

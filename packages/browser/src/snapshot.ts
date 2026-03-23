@@ -92,7 +92,8 @@ function buildChildXPathSegments(kids: DomNode[]): string[] {
   for (const child of kids) {
     const tag = String(child.nodeName).toLowerCase();
     const key = `${child.nodeType}:${tag}`;
-    const idx = (ctr[key] = (ctr[key] ?? 0) + 1);
+    ctr[key] = (ctr[key] ?? 0) + 1;
+    const idx = ctr[key];
     if (child.nodeType === 3) {
       segs.push(`text()[${idx}]`);
     } else if (child.nodeType === 8) {
@@ -331,7 +332,7 @@ function decorateRoles(
     const isHtmlElement = tag === "html";
 
     if ((domIsScrollable || isHtmlElement) && tag !== "#document") {
-      const tagLabel = tag && tag.startsWith("#") ? tag.slice(1) : tag;
+      const tagLabel = tag?.startsWith("#") ? tag.slice(1) : tag;
       role = tagLabel
         ? `scrollable, ${tagLabel}`
         : `scrollable${role ? `, ${role}` : ""}`;
@@ -378,8 +379,8 @@ function buildHierarchicalTree(
 
   for (const n of nodes) {
     const keep =
-      !!(n.name && n.name.trim()) ||
-      !!(n.childIds && n.childIds.length) ||
+      !!n.name?.trim() ||
+      !!n.childIds?.length ||
       !isStructural(n.originalRole || n.role);
     if (!keep) continue;
     nodeMap.set(n.nodeId, { ...n });
@@ -389,7 +390,10 @@ function buildHierarchicalTree(
     if (!n.parentId) continue;
     const parent = nodeMap.get(n.parentId);
     const cur = nodeMap.get(n.nodeId);
-    if (parent && cur) (parent.children ??= []).push(cur);
+    if (parent && cur) {
+      parent.children = parent.children ?? [];
+      parent.children.push(cur);
+    }
   }
 
   const roots = nodes

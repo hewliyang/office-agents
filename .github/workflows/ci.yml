@@ -40,3 +40,30 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @office-agents/browser test:install-browsers
+
+      - name: Browser integration tests
+        run: pnpm --filter @office-agents/browser test:integration
+        env:
+          BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}

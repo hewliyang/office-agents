@@ -6,15 +6,23 @@ import type {
   CreateSessionOptions,
 } from "./providers/types.js";
 
+export interface BrowserDependencies {
+  connectCdp: (wsUrl: string, options?: CdpClientOptions) => Promise<CdpClient>;
+  attachToFirstPage: (cdp: CdpClient) => Promise<Page>;
+  attachToTarget: (cdp: CdpClient, targetId: string) => Promise<Page>;
+}
+
 export interface BrowserOptions {
   provider: BrowserProvider;
   sessionOptions?: CreateSessionOptions;
   cdpOptions?: CdpClientOptions;
+  deps?: Partial<BrowserDependencies>;
 }
 
 export interface ConnectOptions {
   cdpUrl: string;
   cdpOptions?: CdpClientOptions;
+  deps?: Partial<BrowserDependencies>;
 }
 
 export interface BrowserTab {
@@ -25,27 +33,35 @@ export interface BrowserTab {
   active: boolean;
 }
 
+const defaultBrowserDependencies: BrowserDependencies = {
+  connectCdp: (wsUrl, options) => CdpClient.connect(wsUrl, options),
+  attachToFirstPage: (cdp) => Page.attachToFirstPage(cdp),
+  attachToTarget: (cdp, targetId) => Page.attachToTarget(cdp, targetId),
+};
+
 export class Browser {
   private cdp: CdpClient | null = null;
   private provider: BrowserProvider | null = null;
   private session: BrowserSession | null = null;
   private _page: Page | null = null;
   private currentTargetId: string | null = null;
+  private deps: BrowserDependencies = defaultBrowserDependencies;
 
   private constructor() {}
 
   static async launch(options: BrowserOptions): Promise<Browser> {
     const browser = new Browser();
+    browser.deps = { ...defaultBrowserDependencies, ...options.deps };
     browser.provider = options.provider;
     browser.session = await options.provider.createSession(
       options.sessionOptions,
     );
     try {
-      browser.cdp = await CdpClient.connect(
+      browser.cdp = await browser.deps.connectCdp(
         browser.session.cdpUrl,
         options.cdpOptions,
       );
-      browser._page = await Page.attachToFirstPage(browser.cdp);
+      browser._page = await browser.deps.attachToFirstPage(browser.cdp);
       browser.currentTargetId = browser._page.targetId ?? null;
     } catch (err) {
       await browser.close();
@@ -56,8 +72,12 @@ export class Browser {
 
   static async connect(options: ConnectOptions): Promise<Browser> {
     const browser = new Browser();
-    browser.cdp = await CdpClient.connect(options.cdpUrl, options.cdpOptions);
-    browser._page = await Page.attachToFirstPage(browser.cdp);
+    browser.deps = { ...defaultBrowserDependencies, ...options.deps };
+    browser.cdp = await browser.deps.connectCdp(
+      options.cdpUrl,
+      options.cdpOptions,
+    );
+    browser._page = await browser.deps.attachToFirstPage(browser.cdp);
     browser.currentTargetId = browser._page.targetId ?? null;
     return browser;
   }
@@ -94,7 +114,7 @@ export class Browser {
         .catch(() => {});
       this.cdpClient.releaseSession(previousSessionId, "detached by client");
     }
-    const page = await Page.attachToTarget(this.cdpClient, targetId);
+    const page = await this.deps.attachToTarget(this.cdpClient, targetId);
     this._page = page;
     this.currentTargetId = targetId;
     await this.cdpClient

@@ -30,10 +30,14 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run --exclude tests/integration.test.ts --exclude tests/integration/",
+    "test:integration": "vitest run tests/integration.test.ts tests/integration/",
+    "test:install-browsers": "playwright install chromium"
   },
   "devDependencies": {
     "devtools-protocol": "^0.0.1602427",
+    "playwright": "1.57.0",
     "typescript": "^5.8.0"
   }
 }

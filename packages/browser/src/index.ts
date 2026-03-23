@@ -1,49 +1,50 @@
 export {
+  Browser,
+  type BrowserDependencies,
+  type BrowserOptions,
+  type BrowserTab,
+  type ConnectOptions,
+} from "./browser.js";
+export {
   CdpClient,
-  CdpSession,
-  type CdpEventHandler,
   type CdpClientOptions,
+  type CdpEventHandler,
   type CdpProtocolApi,
+  CdpSession,
 } from "./cdp.js";
 export {
-  Page,
-  type NavigateResult,
+  type BrowseCommandConfig,
+  type BrowseSessionEvent,
+  closeActiveBrowser,
+  configureBrowseCommand,
+  disposeBrowseCommand,
+  executeBrowseCommand,
+  getActiveBrowser,
+  getBrowseSessionState,
+  onBrowseSessionChange,
+} from "./command.js";
+export {
   type ClickResult,
-  type TypeResult,
-  type ScreenshotResult,
-  type PdfResult,
-  type PageInfo,
   type CookieInput,
+  type NavigateResult,
+  Page,
+  type PageInfo,
+  type PdfResult,
+  type ScreenshotResult,
+  type TypeResult,
 } from "./page.js";
 export {
-  Browser,
-  type BrowserOptions,
-  type ConnectOptions,
-  type BrowserTab,
-} from "./browser.js";
+  type BrowserbaseConfig,
+  BrowserbaseProvider,
+  type BrowserProvider,
+  type BrowserSession,
+  type BrowserUseConfig,
+  BrowserUseProvider,
+  type CreateSessionOptions,
+} from "./providers/index.js";
 export {
   captureSnapshot,
   type Snapshot,
-  type SnapshotRef,
   type SnapshotOptions,
+  type SnapshotRef,
 } from "./snapshot.js";
-export {
-  type BrowserProvider,
-  type BrowserSession,
-  type CreateSessionOptions,
-  BrowserbaseProvider,
-  type BrowserbaseConfig,
-  BrowserUseProvider,
-  type BrowserUseConfig,
-} from "./providers/index.js";
-export {
-  executeBrowseCommand,
-  configureBrowseCommand,
-  closeActiveBrowser,
-  disposeBrowseCommand,
-  getActiveBrowser,
-  onBrowseSessionChange,
-  getBrowseSessionState,
-  type BrowseCommandConfig,
-  type BrowseSessionEvent,
-} from "./command.js";
