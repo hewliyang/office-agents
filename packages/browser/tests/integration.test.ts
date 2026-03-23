@@ -27,7 +27,7 @@ suite("integration", () => {
   afterAll(async () => {
     await browser?.close();
     await chrome?.close();
-    await stopServer(fixture.server);
+    if (fixture) await stopServer(fixture.server);
   });
 
   // ---------------------------------------------------------------------------

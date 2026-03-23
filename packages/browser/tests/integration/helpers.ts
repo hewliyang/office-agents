@@ -82,6 +82,8 @@ export async function launchChromium(): Promise<LaunchedChromium> {
       "--disable-background-networking",
       "--no-first-run",
       "--no-default-browser-check",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
       "--remote-debugging-port=0",
       `--user-data-dir=${userDataDir}`,
       "about:blank",
