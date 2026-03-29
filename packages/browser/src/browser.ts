@@ -91,10 +91,6 @@ export class Browser {
     return this.session?.sessionId;
   }
 
-  get sessionMetadata(): Record<string, unknown> | undefined {
-    return this.session?.metadata;
-  }
-
   get cdpUrl(): string | undefined {
     return this.session?.cdpUrl;
   }

@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import http from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
+import { BrowserbaseProvider } from "../src/providers/browserbase.js";
 import { BrowserUseProvider } from "../src/providers/browser-use.js";
 
 interface CapturedRequest {
@@ -156,10 +157,6 @@ describe("BrowserUseProvider", () => {
     expect(session).toEqual({
       cdpUrl: "wss://browser-use.example/devtools/browser-1/ws",
       sessionId: "browser-1",
-      metadata: {
-        id: "browser-1",
-        cdpUrl: `${apiServer.baseUrl}/devtools/browser-1`,
-      },
     });
   });
 
@@ -187,5 +184,167 @@ describe("BrowserUseProvider", () => {
     });
 
     await expect(provider.closeSession("browser-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("BrowserbaseProvider", () => {
+  let apiServer: ApiServer | null = null;
+
+  afterEach(async () => {
+    if (apiServer) {
+      await apiServer.close();
+      apiServer = null;
+    }
+  });
+
+  it("creates a session and returns the connectUrl as cdpUrl", async () => {
+    apiServer = await startApiServer((request) => {
+      if (request.path === "/v1/sessions") {
+        expect(request.method).toBe("POST");
+        return {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: "session-abc",
+            connectUrl: "wss://connect.browserbase.com/session-abc",
+            signingKey: "sk-123",
+            seleniumRemoteUrl: "https://connect.browserbase.com/webdriver",
+            createdAt: "2025-01-01T00:00:00Z",
+            expiresAt: "2025-01-01T00:05:00Z",
+            projectId: "proj-1",
+            status: "RUNNING",
+            region: "us-west-2",
+          }),
+        };
+      }
+
+      return { status: 404, body: "not found" };
+    });
+
+    const provider = new BrowserbaseProvider({
+      apiKey: "bb-key",
+      baseUrl: apiServer.baseUrl,
+      projectId: "proj-1",
+      region: "us-west-2",
+      timeoutSeconds: 300,
+      proxy: true,
+    });
+
+    const session = await provider.createSession();
+
+    expect(apiServer.requests).toHaveLength(1);
+    expect(apiServer.requests[0]).toMatchObject({
+      method: "POST",
+      path: "/v1/sessions",
+      headers: {
+        "content-type": "application/json",
+        "x-bb-api-key": "bb-key",
+      },
+    });
+    expect(JSON.parse(apiServer.requests[0]!.body)).toEqual({
+      projectId: "proj-1",
+      region: "us-west-2",
+      timeout: 300,
+      proxies: true,
+    });
+
+    expect(session).toEqual({
+      cdpUrl: "wss://connect.browserbase.com/session-abc",
+      sessionId: "session-abc",
+    });
+  });
+
+  it("passes viewport and contextId through browserSettings", async () => {
+    apiServer = await startApiServer((request) => {
+      if (request.path === "/v1/sessions") {
+        return {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: "session-xyz",
+            connectUrl: "wss://connect.browserbase.com/session-xyz",
+            signingKey: "sk-456",
+            seleniumRemoteUrl: "https://connect.browserbase.com/webdriver",
+            createdAt: "2025-01-01T00:00:00Z",
+            expiresAt: "2025-01-01T00:05:00Z",
+            projectId: "proj-1",
+            status: "RUNNING",
+            region: "us-east-1",
+          }),
+        };
+      }
+      return { status: 404, body: "not found" };
+    });
+
+    const provider = new BrowserbaseProvider({
+      apiKey: "bb-key",
+      baseUrl: apiServer.baseUrl,
+    });
+
+    await provider.createSession({
+      viewport: { width: 1920, height: 1080 },
+      contextId: "ctx-1",
+    });
+
+    const body = JSON.parse(apiServer.requests[0]!.body);
+    expect(body.browserSettings).toEqual({
+      viewport: { width: 1920, height: 1080 },
+      context: { id: "ctx-1" },
+    });
+  });
+
+  it("throws a clear authentication error for 401 and 403 responses", async () => {
+    apiServer = await startApiServer(() => ({
+      status: 401,
+      body: "unauthorized",
+    }));
+
+    const provider = new BrowserbaseProvider({
+      apiKey: "bad-key",
+      baseUrl: apiServer.baseUrl,
+    });
+
+    await expect(provider.createSession()).rejects.toThrow(
+      "Browserbase authentication failed (401). Check your BROWSERBASE_API_KEY.",
+    );
+  });
+
+  it("closes a session by sending REQUEST_RELEASE", async () => {
+    apiServer = await startApiServer((request) => {
+      if (
+        request.path === "/v1/sessions/session-abc" &&
+        request.method === "POST"
+      ) {
+        return {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: "session-abc", status: "COMPLETED" }),
+        };
+      }
+      return { status: 404, body: "not found" };
+    });
+
+    const provider = new BrowserbaseProvider({
+      apiKey: "bb-key",
+      baseUrl: apiServer.baseUrl,
+    });
+
+    await provider.closeSession("session-abc");
+
+    expect(apiServer.requests).toHaveLength(1);
+    expect(apiServer.requests[0]).toMatchObject({
+      method: "POST",
+      path: "/v1/sessions/session-abc",
+    });
+    expect(JSON.parse(apiServer.requests[0]!.body)).toEqual({
+      status: "REQUEST_RELEASE",
+    });
+  });
+
+  it("swallows close errors", async () => {
+    const baseUrl = await getUnusedBaseUrl();
+    const provider = new BrowserbaseProvider({
+      apiKey: "bb-key",
+      baseUrl,
+    });
+
+    await expect(provider.closeSession("session-abc")).resolves.toBeUndefined();
   });
 });

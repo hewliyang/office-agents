@@ -1,8 +1,10 @@
 import {
+  BrowserbaseProvider,
   BrowserUseProvider,
   configureBrowseCommand,
   executeBrowseCommand,
 } from "@office-agents/browser";
+import type { BrowserProvider } from "@office-agents/browser";
 import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
 import { loadPdfDocument } from "../pdf";
@@ -578,8 +580,16 @@ const imageSearchCmd: DescribedCommand = {
   }),
 };
 
-function getBrowserProvider(): BrowserUseProvider | null {
+function getBrowserProvider(): BrowserProvider | null {
   const webConfig = loadWebConfig();
+
+  const browserbaseApiKey = webConfig.apiKeys?.browserbase;
+  if (browserbaseApiKey) {
+    return new BrowserbaseProvider({
+      apiKey: browserbaseApiKey,
+      corsProxyUrl: getProxyUrl(),
+    });
+  }
 
   const browserUseApiKey = webConfig.apiKeys?.browserUse;
   if (browserUseApiKey) {
@@ -591,7 +601,7 @@ function getBrowserProvider(): BrowserUseProvider | null {
 
 const browseCmd: DescribedCommand = {
   promptSnippet:
-    "- browse <url> [options] — Open a cloud browser session to interact with a web page. Supports navigation, screenshots, clicks, form filling, and data extraction.",
+    "- browse — Cloud browser. Run `browse --help` first to see all commands.",
   isAvailable: () => getBrowserProvider() !== null,
   command: defineCommand("browse", async (args, ctx) => {
     configureBrowseCommand({

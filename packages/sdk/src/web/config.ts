@@ -7,6 +7,7 @@ export interface WebConfig {
     brave?: string;
     serper?: string;
     browserUse?: string;
+    browserbase?: string;
   };
 }
 

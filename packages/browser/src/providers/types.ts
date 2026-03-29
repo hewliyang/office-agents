@@ -1,7 +1,6 @@
 export interface BrowserSession {
   cdpUrl: string;
   sessionId: string;
-  metadata?: Record<string, unknown>;
 }
 
 export interface BrowserProvider {

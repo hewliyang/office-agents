@@ -43,7 +43,7 @@ function createProvider(session?: Partial<BrowserSession>): FakeProvider {
   const resolvedSession: BrowserSession = {
     cdpUrl: "wss://cdp.example/session",
     sessionId: "session-1",
-    metadata: { liveUrl: "https://live.example/session-1" },
+
     ...session,
   };
 
@@ -196,9 +196,6 @@ describe("Browser", () => {
     ]);
     expect(browser.sessionId).toBe("session-1");
     expect(browser.cdpUrl).toBe("wss://cdp.example/session");
-    expect(browser.sessionMetadata).toEqual({
-      liveUrl: "https://live.example/session-1",
-    });
 
     await browser.close();
 

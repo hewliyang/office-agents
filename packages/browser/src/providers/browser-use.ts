@@ -84,7 +84,6 @@ export class BrowserUseProvider implements BrowserProvider {
     return {
       cdpUrl,
       sessionId: data.id,
-      metadata: { ...data },
     };
   }
 

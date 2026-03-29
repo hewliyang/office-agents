@@ -61,6 +61,7 @@
   let serperApiKey = $state(savedWeb.apiKeys.serper || "");
   let exaApiKey = $state(savedWeb.apiKeys.exa || "");
   let browserUseApiKey = $state(savedWeb.apiKeys.browserUse || "");
+  let browserbaseApiKey = $state(savedWeb.apiKeys.browserbase || "");
   let showAdvancedWebKeys = $state(false);
 
   let oauthFlow = $state<OAuthFlowState>(
@@ -171,6 +172,7 @@
       serperApiKey: string;
       exaApiKey: string;
       browserUseApiKey: string;
+      browserbaseApiKey: string;
     }>,
   ) {
     webSearchProvider = updates.searchProvider ?? webSearchProvider;
@@ -181,6 +183,7 @@
     serperApiKey = updates.serperApiKey ?? serperApiKey;
     exaApiKey = updates.exaApiKey ?? exaApiKey;
     browserUseApiKey = updates.browserUseApiKey ?? browserUseApiKey;
+    browserbaseApiKey = updates.browserbaseApiKey ?? browserbaseApiKey;
 
     saveWebConfig({
       searchProvider: webSearchProvider,
@@ -191,6 +194,7 @@
         serper: serperApiKey,
         exa: exaApiKey,
         browserUse: browserUseApiKey,
+        browserbase: browserbaseApiKey,
       },
     });
   }
@@ -807,6 +811,28 @@
         <p class="text-[10px] text-(--chat-text-muted)">
           Get an API key at <a href="https://cloud.browser-use.com/new-api-key" target="_blank" class="underline hover:text-(--chat-text-secondary)">cloud.browser-use.com</a>
         </p>
+      </div>
+    </details>
+
+    <details class="group">
+      <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
+        <ChevronDown size={12} class="group-open:hidden" />
+        <ChevronUp size={12} class="hidden group-open:inline" />
+        Browserbase
+        {#if browserbaseApiKey}
+          <Check size={10} class="text-(--chat-success)" />
+        {/if}
+      </summary>
+      <div class="mt-2 space-y-2 pl-0.5">
+        {@render apiKeyField("API Key", browserbaseApiKey, (v) => { browserbaseApiKey = v; updateWebSettings({ browserbaseApiKey }); }, "bb_live_...")}
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Get an API key at <a href="https://www.browserbase.com/settings" target="_blank" class="underline hover:text-(--chat-text-secondary)">browserbase.com/settings</a>
+        </p>
+        {#if browserbaseApiKey && browserUseApiKey}
+          <p class="text-[10px] text-(--chat-text-muted) italic">
+            Both providers configured — Browserbase will be used.
+          </p>
+        {/if}
       </div>
     </details>
 

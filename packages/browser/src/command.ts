@@ -5,7 +5,6 @@ let activeBrowser: Browser | null = null;
 
 export interface BrowseSessionEvent {
   active: boolean;
-  liveUrl?: string;
   sessionId?: string;
 }
 
@@ -22,10 +21,8 @@ export function onBrowseSessionChange(
 
 export function getBrowseSessionState(): BrowseSessionEvent {
   if (!activeBrowser) return { active: false };
-  const metadata = activeBrowser.sessionMetadata;
   return {
     active: true,
-    liveUrl: metadata?.liveUrl as string | undefined,
     sessionId: activeBrowser.sessionId,
   };
 }
@@ -296,11 +293,10 @@ export async function executeBrowseCommand(
           waitUntil: flags.wait ?? "load",
           timeoutMs: flags.timeout ? parseInt(flags.timeout, 10) : undefined,
         });
+        emitSessionChange();
         const result: Record<string, unknown> = {
           url: await activeBrowser.page.getUrl(),
         };
-        const liveUrl = activeBrowser.sessionMetadata?.liveUrl;
-        if (liveUrl) result.liveUrl = liveUrl;
         return { stdout: output(result, json), stderr: "", exitCode: 0 };
       }
 
@@ -319,7 +315,6 @@ export async function executeBrowseCommand(
             {
               status: "connected",
               sessionId: activeBrowser.sessionId,
-              liveUrl: activeBrowser.sessionMetadata?.liveUrl,
               url,
               title,
             },
