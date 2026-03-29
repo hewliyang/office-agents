@@ -6,7 +6,7 @@ import {
   truncateTail,
 } from "../truncate";
 import { getBash } from "../vfs";
-import { defineTool, toolError, toolSuccess } from "./types";
+import { defineTool, toolError, toolText } from "./types";
 
 export const bashTool = defineTool({
   name: "bash",
@@ -72,7 +72,7 @@ export const bashTool = defineTool({
         }
       }
 
-      return toolSuccess({ output: outputText, exitCode: result.exitCode });
+      return toolText(outputText);
     } catch (error) {
       const message =
         error instanceof Error

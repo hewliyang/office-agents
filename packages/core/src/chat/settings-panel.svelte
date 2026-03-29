@@ -60,6 +60,8 @@
   let braveApiKey = $state(savedWeb.apiKeys.brave || "");
   let serperApiKey = $state(savedWeb.apiKeys.serper || "");
   let exaApiKey = $state(savedWeb.apiKeys.exa || "");
+  let browserUseApiKey = $state(savedWeb.apiKeys.browserUse || "");
+  let browserbaseApiKey = $state(savedWeb.apiKeys.browserbase || "");
   let showAdvancedWebKeys = $state(false);
 
   let oauthFlow = $state<OAuthFlowState>(
@@ -169,6 +171,8 @@
       braveApiKey: string;
       serperApiKey: string;
       exaApiKey: string;
+      browserUseApiKey: string;
+      browserbaseApiKey: string;
     }>,
   ) {
     webSearchProvider = updates.searchProvider ?? webSearchProvider;
@@ -178,6 +182,8 @@
     braveApiKey = updates.braveApiKey ?? braveApiKey;
     serperApiKey = updates.serperApiKey ?? serperApiKey;
     exaApiKey = updates.exaApiKey ?? exaApiKey;
+    browserUseApiKey = updates.browserUseApiKey ?? browserUseApiKey;
+    browserbaseApiKey = updates.browserbaseApiKey ?? browserbaseApiKey;
 
     saveWebConfig({
       searchProvider: webSearchProvider,
@@ -187,6 +193,8 @@
         brave: braveApiKey,
         serper: serperApiKey,
         exa: exaApiKey,
+        browserUse: browserUseApiKey,
+        browserbase: browserbaseApiKey,
       },
     });
   }
@@ -776,6 +784,58 @@
         {/if}
       </div>
     </div>
+  </div>
+
+  <div class="border-t border-(--chat-border) pt-4 space-y-3">
+    <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
+      cloud browser
+    </div>
+
+    <p class="text-[10px] text-(--chat-text-muted)">
+      Configure a cloud browser provider to enable the <code class="text-(--chat-text-secondary)">browse</code> command.
+      The agent can navigate pages, click elements, take screenshots, and extract data.
+      Configure one of the providers below.
+    </p>
+
+    <details class="group">
+      <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
+        <ChevronDown size={12} class="group-open:hidden" />
+        <ChevronUp size={12} class="hidden group-open:inline" />
+        Browser Use
+        {#if browserUseApiKey}
+          <Check size={10} class="text-(--chat-success)" />
+        {/if}
+      </summary>
+      <div class="mt-2 space-y-2 pl-0.5">
+        {@render apiKeyField("API Key", browserUseApiKey, (v) => { browserUseApiKey = v; updateWebSettings({ browserUseApiKey }); }, "bu-api-...")}
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Get an API key at <a href="https://cloud.browser-use.com/new-api-key" target="_blank" class="underline hover:text-(--chat-text-secondary)">cloud.browser-use.com</a>
+        </p>
+      </div>
+    </details>
+
+    <details class="group">
+      <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
+        <ChevronDown size={12} class="group-open:hidden" />
+        <ChevronUp size={12} class="hidden group-open:inline" />
+        Browserbase
+        {#if browserbaseApiKey}
+          <Check size={10} class="text-(--chat-success)" />
+        {/if}
+      </summary>
+      <div class="mt-2 space-y-2 pl-0.5">
+        {@render apiKeyField("API Key", browserbaseApiKey, (v) => { browserbaseApiKey = v; updateWebSettings({ browserbaseApiKey }); }, "bb_live_...")}
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Get an API key at <a href="https://www.browserbase.com/settings" target="_blank" class="underline hover:text-(--chat-text-secondary)">browserbase.com/settings</a>
+        </p>
+        {#if browserbaseApiKey && browserUseApiKey}
+          <p class="text-[10px] text-(--chat-text-muted) italic">
+            Both providers configured — Browserbase will be used.
+          </p>
+        {/if}
+      </div>
+    </details>
+
   </div>
 
   <div class="border-t border-(--chat-border) pt-4">

@@ -1,3 +1,10 @@
+import {
+  BrowserbaseProvider,
+  BrowserUseProvider,
+  configureBrowseCommand,
+  executeBrowseCommand,
+} from "@office-agents/browser";
+import type { BrowserProvider } from "@office-agents/browser";
 import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
 import { loadPdfDocument } from "../pdf";
@@ -22,6 +29,11 @@ export interface DescribedCommand {
   command: CustomCommand;
   promptSnippet: string;
   isAvailable?: () => boolean;
+}
+
+export interface CustomCommandsResult {
+  commands: CustomCommand[];
+  promptSnippets: string[];
 }
 
 export interface SharedCustomCommandOptions {
@@ -568,10 +580,40 @@ const imageSearchCmd: DescribedCommand = {
   }),
 };
 
-export interface CustomCommandsResult {
-  commands: CustomCommand[];
-  promptSnippets: string[];
+function getBrowserProvider(): BrowserProvider | null {
+  const webConfig = loadWebConfig();
+
+  const browserbaseApiKey = webConfig.apiKeys?.browserbase;
+  if (browserbaseApiKey) {
+    return new BrowserbaseProvider({
+      apiKey: browserbaseApiKey,
+      corsProxyUrl: getProxyUrl(),
+    });
+  }
+
+  const browserUseApiKey = webConfig.apiKeys?.browserUse;
+  if (browserUseApiKey) {
+    return new BrowserUseProvider({ apiKey: browserUseApiKey });
+  }
+
+  return null;
 }
+
+const browseCmd: DescribedCommand = {
+  promptSnippet:
+    "- browse — Cloud browser. Run `browse --help` first to see all commands.",
+  isAvailable: () => getBrowserProvider() !== null,
+  command: defineCommand("browse", async (args, ctx) => {
+    configureBrowseCommand({
+      getProvider: () => getBrowserProvider(),
+      writeFile: ctx
+        ? (path, data) => writeVfsOutput(ctx, path, data).then(() => {})
+        : undefined,
+    });
+
+    return executeBrowseCommand(args);
+  }),
+};
 
 function collect(described: DescribedCommand[]): CustomCommandsResult {
   const availableSnippets = described.filter(
@@ -593,6 +635,7 @@ export function getSharedCustomCommands(
     xlsxToCsv,
     webSearchCmd,
     webFetchCmd,
+    browseCmd,
   ];
 
   if (options.includeImageSearch) {

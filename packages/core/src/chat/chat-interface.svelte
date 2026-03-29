@@ -18,6 +18,7 @@
   import type { AppAdapter } from "./app-adapter";
   import { ChatController } from "./chat-controller";
   import { setChatContext } from "./chat-runtime-context";
+  import BrowserViewer from "./browser-viewer.svelte";
   import ChatInput from "./chat-input.svelte";
   import FilesPanel from "./files-panel.svelte";
   import MessageList from "./message-list.svelte";
@@ -192,7 +193,7 @@
 
             {#if sessionDropdownOpen}
               <div
-                class="absolute top-full left-0 mt-1 w-56 bg-(--chat-bg) border border-(--chat-border) rounded shadow-lg z-50 overflow-hidden"
+                class="absolute top-full left-0 mt-1 w-56 bg-(--chat-bg) border border-(--chat-border) rounded shadow-lg z-[60] overflow-hidden"
               >
                 <button
                   type="button"
@@ -337,6 +338,7 @@
   </div>
 
   {#if activeTab === "chat"}
+    <BrowserViewer />
     <MessageList />
     {#if SelectionIndicator}
       <SelectionIndicator />

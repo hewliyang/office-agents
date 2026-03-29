@@ -1,5 +1,13 @@
 // Runtime
 
+// Browser
+export {
+  type BrowseSessionEvent,
+  closeActiveBrowser,
+  disposeBrowseCommand,
+  getBrowseSessionState,
+  onBrowseSessionChange,
+} from "@office-agents/browser";
 export type { ImageResizeOptions, ResizedImage } from "./image-resize";
 export { resizeImage } from "./image-resize";
 // Lockdown
