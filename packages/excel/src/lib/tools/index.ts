@@ -12,6 +12,7 @@ export { resizeRangeTool } from "./resize-range";
 export { screenshotRangeTool } from "./screenshot-range";
 export { searchDataTool } from "./search-data";
 export { setCellRangeTool } from "./set-cell-range";
+export { undoTool, undoHistoryTool } from "./undo";
 export {
   defineTool,
   type ToolResult,
@@ -35,6 +36,7 @@ import { resizeRangeTool } from "./resize-range";
 import { screenshotRangeTool } from "./screenshot-range";
 import { searchDataTool } from "./search-data";
 import { setCellRangeTool } from "./set-cell-range";
+import { undoHistoryTool, undoTool } from "./undo";
 
 export function createExcelTools(ctx: AgentContext) {
   return [
@@ -56,5 +58,8 @@ export function createExcelTools(ctx: AgentContext) {
     resizeRangeTool,
     modifyObjectTool,
     createEvalOfficeJsTool(ctx),
+    // Undo/redo
+    undoTool,
+    undoHistoryTool,
   ];
 }

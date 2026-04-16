@@ -53,7 +53,24 @@ EXCEL WRITE:
 - resize_range: Adjust column widths and row heights
 - modify_object: Create/update/delete charts and pivot tables
 
+UNDO/REDO:
+- undo: Programmatically reverse write operations (real Ctrl+Z)
+- undo_history: View operations that can be undone
+
 eval_officejs has access to readFile(path) → Promise<string>, readFileBuffer(path) → Promise<Uint8Array>, and writeFile(path, content) → Promise<void> (content: string | Uint8Array) for VFS files.
+
+## UNDO SYSTEM - You Can Fix Mistakes!
+
+✅ **UNDO IS AVAILABLE**: All write operations are automatically tracked and can be reversed:
+- Made a mistake? Use the undo tool to reverse it programmatically
+- Accidentally overwrote data? Call undo immediately to restore it
+- Not sure about a change? Make it, then undo if needed
+- Check what can be undone with undo_history
+
+⚠️ **BEST PRACTICES**:
+1. Read data before modifying to understand what you're changing
+2. If uncertain, make the change and undo if it's wrong
+3. Check undo_history to see what operations can be reversed
 
 Citations: Use markdown links with #cite: hash to reference sheets/cells. Clicking navigates there.
 - Sheet only: [Sheet Name](#cite:sheetId)
