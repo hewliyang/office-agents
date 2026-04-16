@@ -13,6 +13,8 @@ export { screenshotRangeTool } from "./screenshot-range";
 export { searchDataTool } from "./search-data";
 export { setCellRangeTool } from "./set-cell-range";
 export { undoTool, undoHistoryTool } from "./undo";
+export { checkPermissionsTool } from "./check-permissions";
+export { provideFormulasTool } from "./provide-formulas";
 export {
   defineTool,
   type ToolResult,
@@ -37,6 +39,8 @@ import { screenshotRangeTool } from "./screenshot-range";
 import { searchDataTool } from "./search-data";
 import { setCellRangeTool } from "./set-cell-range";
 import { undoHistoryTool, undoTool } from "./undo";
+import { checkPermissionsTool } from "./check-permissions";
+import { provideFormulasTool } from "./provide-formulas";
 
 export function createExcelTools(ctx: AgentContext) {
   return [
@@ -61,5 +65,8 @@ export function createExcelTools(ctx: AgentContext) {
     // Undo/redo
     undoTool,
     undoHistoryTool,
+    // Safety & fallback tools
+    checkPermissionsTool,
+    provideFormulasTool,
   ];
 }
