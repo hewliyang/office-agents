@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-04-17
+
 ### Changed
 
 - **Co-located command prompt snippets** — PowerPoint-specific VFS commands (`insert-image`, `search-icons`, `insert-icon`) now use `DescribedCommand` with co-located `promptSnippet`. System prompt assembles command docs dynamically from snippets instead of hard-coding them.
