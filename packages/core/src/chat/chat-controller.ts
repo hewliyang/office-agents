@@ -1,7 +1,10 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
+import { getModels, getProviders } from "@mariozechner/pi-ai";
 import {
   AgentRuntime,
   configureNamespace,
+  getConfiguredProviders,
+  HIDDEN_PROVIDERS,
   type ProviderConfig,
   type RuntimeState,
 } from "@office-agents/sdk";
@@ -32,6 +35,25 @@ export class ChatController {
 
   get availableProviders() {
     return this.#runtime.getAvailableProviders();
+  }
+
+  get visibleProviders(): string[] {
+    return getProviders().filter((p: string) => !HIDDEN_PROVIDERS.has(p));
+  }
+
+  getAvailableModels(): { provider: string; models: Model<Api>[] }[] {
+    const configured = getConfiguredProviders();
+    const result: { provider: string; models: Model<Api>[] }[] = [];
+    for (const provider of configured) {
+      if (HIDDEN_PROVIDERS.has(provider)) continue;
+      try {
+        const models = (getModels as (p: string) => Model<Api>[])(provider);
+        if (models.length > 0) result.push({ provider, models });
+      } catch {
+        /* skip unknown providers */
+      }
+    }
+    return result;
   }
 
   setAdapter(adapter: AppAdapter) {

@@ -13,7 +13,7 @@ import {
   type Model,
   streamSimple,
 } from "@mariozechner/pi-ai";
-import { disposeBrowseCommand } from "@office-agents/browser";
+import { disposeBrowseCli } from "./browse-manager";
 import {
   agentMessagesToChatMessages,
   type ChatMessage,
@@ -876,6 +876,6 @@ export class AgentRuntime {
   dispose() {
     this.agent?.abort();
     this.listeners.clear();
-    disposeBrowseCommand();
+    void disposeBrowseCli();
   }
 }

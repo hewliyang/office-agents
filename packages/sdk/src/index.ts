@@ -1,13 +1,19 @@
 // Runtime
 
+export type {
+  BrowsePreviewEvent,
+  BrowseSessionEvent,
+} from "@office-agents/browser";
 // Browser
 export {
-  type BrowseSessionEvent,
   closeActiveBrowser,
-  disposeBrowseCommand,
+  disposeBrowseCli,
+  getBrowsePreviewState,
   getBrowseSessionState,
+  onBrowsePreviewChange,
   onBrowseSessionChange,
-} from "@office-agents/browser";
+  switchActiveBrowserTab,
+} from "./browse-manager";
 export type { ImageResizeOptions, ResizedImage } from "./image-resize";
 export { resizeImage } from "./image-resize";
 // Lockdown
@@ -49,6 +55,20 @@ export {
   THINKING_LEVELS,
   type ThinkingLevel,
 } from "./provider-config";
+// Provider keys
+export {
+  type CustomEndpointConfig,
+  getApiKeyForProvider,
+  getAuthMethodForProvider,
+  getConfiguredProviders,
+  HIDDEN_PROVIDERS,
+  hasProviderAuth,
+  loadCustomEndpoint,
+  loadProviderKeys,
+  removeProviderKey,
+  saveCustomEndpoint,
+  saveProviderKey,
+} from "./provider-keys";
 export {
   AgentRuntime,
   type RuntimeAdapter,

@@ -1,6 +1,11 @@
 import type { Protocol } from "devtools-protocol/types/protocol.js";
 import { type CdpClient, CdpSession } from "./cdp.js";
 import {
+  htmlFragmentToMarkdown,
+  htmlToMarkdown,
+  type MarkdownContentResult,
+} from "./markdown.js";
+import {
   captureSnapshot,
   type Snapshot,
   type SnapshotOptions,
@@ -27,9 +32,26 @@ export interface PdfResult {
   base64: string;
 }
 
+export interface BoxResult {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface UploadedFile {
+  name: string;
+  type?: string;
+  base64: string;
+}
+
 export interface PageInfo {
   url: string;
   title: string;
+}
+
+export interface MarkdownResult extends MarkdownContentResult {
+  url: string;
 }
 
 export interface CookieInput {
@@ -46,7 +68,27 @@ export interface CookieInput {
 
 type CdpSender = CdpClient | CdpSession;
 
-type WaitSelectorState = "visible" | "hidden" | "attached";
+type WaitSelectorState = "visible" | "hidden" | "attached" | "detached";
+
+type FindLocator =
+  | {
+      kind:
+        | "role"
+        | "text"
+        | "label"
+        | "placeholder"
+        | "alt"
+        | "title"
+        | "testid";
+      value: string;
+      exact?: boolean;
+      name?: string;
+    }
+  | {
+      kind: "nth";
+      selector: string;
+      index: number;
+    };
 
 const KEY_MAP: Record<string, { key: string; code: string; keyCode: number }> =
   {
@@ -88,10 +130,71 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(regex);
 }
 
+const DEVICE_DESCRIPTORS: Record<
+  string,
+  {
+    width: number;
+    height: number;
+    deviceScaleFactor: number;
+    mobile: boolean;
+    userAgent: string;
+    hasTouch?: boolean;
+  }
+> = {
+  "iphone 14": {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 3,
+    mobile: true,
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+  },
+  "iphone 15": {
+    width: 393,
+    height: 852,
+    deviceScaleFactor: 3,
+    mobile: true,
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  },
+  "iphone 15 pro": {
+    width: 393,
+    height: 852,
+    deviceScaleFactor: 3,
+    mobile: true,
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  },
+  ipad: {
+    width: 820,
+    height: 1180,
+    deviceScaleFactor: 2,
+    mobile: true,
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  },
+  "pixel 7": {
+    width: 412,
+    height: 915,
+    deviceScaleFactor: 2.625,
+    mobile: true,
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+  },
+};
+
 export class Page {
   private session: CdpSender;
   private currentUrl = "";
   private snapshotData: Snapshot | null = null;
+  private mouseX = 0;
+  private mouseY = 0;
+  private extraHeaders: Record<string, string> = {};
 
   constructor(
     session: CdpSender,
@@ -218,6 +321,133 @@ export class Page {
     })()`);
   }
 
+  private locatorExpression(locator: FindLocator): string {
+    return `(() => {
+      const locator = ${JSON.stringify(locator)};
+      const normalize = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+      const matchesText = (actual, expected, exact) => {
+        const a = normalize(actual);
+        const e = normalize(expected);
+        if (!e) return false;
+        return exact ? a === e : a.toLowerCase().includes(e.toLowerCase());
+      };
+      const isVisible = (node) => {
+        if (!(node instanceof Element)) return false;
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") !== 0 && rect.width > 0 && rect.height > 0;
+      };
+      const implicitRole = (el) => {
+        const tag = el.tagName.toLowerCase();
+        if (tag === "a" && el.hasAttribute("href")) return "link";
+        if (tag === "button") return "button";
+        if (tag === "select") return "combobox";
+        if (tag === "textarea") return "textbox";
+        if (tag === "img") return "img";
+        if (tag === "summary") return "button";
+        if (tag === "option") return "option";
+        if (tag === "input") {
+          const type = (el.getAttribute("type") || "text").toLowerCase();
+          if (["button", "submit", "reset"].includes(type)) return "button";
+          if (type === "checkbox") return "checkbox";
+          if (type === "radio") return "radio";
+          if (["email", "search", "tel", "text", "url", "password", "number"].includes(type)) return "textbox";
+        }
+        return null;
+      };
+      const getRole = (el) => normalize(el.getAttribute("role") || implicitRole(el) || "").toLowerCase();
+      const getName = (el) => {
+        const ariaLabel = el.getAttribute("aria-label");
+        if (ariaLabel) return ariaLabel;
+        const labelledBy = el.getAttribute("aria-labelledby");
+        if (labelledBy) {
+          const text = labelledBy
+            .split(/\s+/)
+            .map((id) => document.getElementById(id)?.textContent || "")
+            .join(" ")
+            .trim();
+          if (text) return text;
+        }
+        if (el instanceof HTMLInputElement && ["button", "submit", "reset"].includes((el.type || "").toLowerCase())) {
+          return el.value || el.getAttribute("value") || "";
+        }
+        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+          const labels = Array.from(el.labels || []).map((label) => label.textContent || "").join(" ").trim();
+          if (labels) return labels;
+        }
+        return el.innerText || el.textContent || el.getAttribute("title") || el.getAttribute("alt") || "";
+      };
+      const candidates = Array.from(document.querySelectorAll("*"));
+      const visible = candidates.filter((node) => isVisible(node));
+      const byRole = () => visible.find((node) => {
+        if (getRole(node) !== locator.value.toLowerCase()) return false;
+        if (locator.kind !== "role") return false;
+        if (!locator.name) return true;
+        return matchesText(getName(node), locator.name, !!locator.exact);
+      }) || null;
+      const byText = () => visible.find((node) => matchesText(node.innerText || node.textContent || "", locator.value, !!locator.exact)) || null;
+      const byLabel = () => {
+        const labels = Array.from(document.querySelectorAll("label"));
+        for (const label of labels) {
+          if (!matchesText(label.innerText || label.textContent || "", locator.value, !!locator.exact)) continue;
+          const control = label.control || label.querySelector("input,textarea,select,button");
+          if (control instanceof Element) return control;
+        }
+        return null;
+      };
+      const byPlaceholder = () => visible.find((node) => (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) && matchesText(node.getAttribute("placeholder") || "", locator.value, !!locator.exact)) || null;
+      const byAlt = () => visible.find((node) => matchesText(node.getAttribute("alt") || "", locator.value, !!locator.exact)) || null;
+      const byTitle = () => visible.find((node) => matchesText(node.getAttribute("title") || "", locator.value, !!locator.exact)) || null;
+      const byTestId = () => visible.find((node) => matchesText(node.getAttribute("data-testid") || "", locator.value, !!locator.exact)) || null;
+      const byNth = () => {
+        if (locator.kind !== "nth") return null;
+        const nodes = Array.from(document.querySelectorAll(locator.selector));
+        if (!nodes.length) return null;
+        const index = locator.index < 0 ? nodes.length + locator.index : locator.index;
+        return (nodes[index] instanceof Element ? nodes[index] : null) || null;
+      };
+      switch (locator.kind) {
+        case "role":
+          return byRole();
+        case "text":
+          return byText();
+        case "label":
+          return byLabel();
+        case "placeholder":
+          return byPlaceholder();
+        case "alt":
+          return byAlt();
+        case "title":
+          return byTitle();
+        case "testid":
+          return byTestId();
+        case "nth":
+          return byNth();
+        default:
+          return null;
+      }
+    })()`;
+  }
+
+  private async getLocatorCenter(
+    locator: FindLocator,
+  ): Promise<BoxResult | null> {
+    return this.evaluateInPage(`(() => {
+      const node = ${this.locatorExpression(locator)};
+      if (!(node instanceof Element)) return null;
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    })()`);
+  }
+
+  private async locatorText(locator: FindLocator): Promise<string> {
+    return this.evaluateInPage(`(() => {
+      const node = ${this.locatorExpression(locator)};
+      if (!(node instanceof Element)) throw new Error("Element not found");
+      return node.innerText || node.textContent || "";
+    })()`);
+  }
+
   async goto(
     url: string,
     options?: { waitUntil?: string; timeoutMs?: number },
@@ -305,6 +535,23 @@ export class Page {
     );
   }
 
+  async getMarkdown(selectorOrRef?: string): Promise<MarkdownResult> {
+    const url = await this.getUrl();
+    if (selectorOrRef) {
+      const html = await this.getHtml(selectorOrRef);
+      const text = htmlFragmentToMarkdown(html);
+      return {
+        url,
+        title: await this.getTitle(),
+        text,
+        metadata: { URL: url, Scope: selectorOrRef },
+      };
+    }
+
+    const html = await this.getHtml();
+    return { url, ...htmlToMarkdown(url, html) };
+  }
+
   async getValue(selectorOrRef: string): Promise<string> {
     return this.evaluateInPage(`(() => {
       const node = ${this.elementLookupExpression(selectorOrRef)};
@@ -387,6 +634,8 @@ export class Page {
   ): Promise<ClickResult> {
     const button = (options?.button ?? "left") as Protocol.Input.MouseButton;
     const clickCount = options?.clickCount ?? 1;
+    this.mouseX = x;
+    this.mouseY = y;
 
     await this.session.send("Input.dispatchMouseEvent", {
       type: "mouseMoved",
@@ -448,6 +697,8 @@ export class Page {
   }
 
   async hover(x: number, y: number): Promise<void> {
+    this.mouseX = x;
+    this.mouseY = y;
     await this.session.send("Input.dispatchMouseEvent", {
       type: "mouseMoved",
       x,
@@ -468,6 +719,8 @@ export class Page {
     deltaX: number,
     deltaY: number,
   ): Promise<void> {
+    this.mouseX = x;
+    this.mouseY = y;
     await this.session.send("Input.dispatchMouseEvent", {
       type: "mouseWheel",
       x,
@@ -475,6 +728,64 @@ export class Page {
       deltaX,
       deltaY,
     });
+  }
+
+  async mouseDown(button: Protocol.Input.MouseButton = "left"): Promise<void> {
+    await this.session.send("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: this.mouseX,
+      y: this.mouseY,
+      button,
+      clickCount: 1,
+    });
+  }
+
+  async mouseUp(button: Protocol.Input.MouseButton = "left"): Promise<void> {
+    await this.session.send("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: this.mouseX,
+      y: this.mouseY,
+      button,
+      clickCount: 1,
+    });
+  }
+
+  async mouseWheel(deltaY: number, deltaX = 0): Promise<void> {
+    await this.scroll(this.mouseX, this.mouseY, deltaX, deltaY);
+  }
+
+  async scrollDirection(
+    direction: "up" | "down" | "left" | "right",
+    amount = 300,
+    selector?: string,
+  ): Promise<void> {
+    const delta = Math.abs(amount);
+    const deltaX =
+      direction === "left" ? -delta : direction === "right" ? delta : 0;
+    const deltaY =
+      direction === "up" ? -delta : direction === "down" ? delta : 0;
+    if (selector) {
+      await this.evaluateInPage(`(() => {
+        const node = ${this.elementLookupExpression(selector)};
+        if (!(node instanceof Element)) throw new Error("Scrollable element not found");
+        node.scrollBy({ left: ${deltaX}, top: ${deltaY}, behavior: "auto" });
+        return true;
+      })()`);
+      return;
+    }
+
+    await this.evaluateInPage(
+      `window.scrollBy({ left: ${deltaX}, top: ${deltaY}, behavior: "auto" })`,
+    );
+  }
+
+  async scrollIntoView(selectorOrRef: string): Promise<void> {
+    await this.evaluateInPage(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!(node instanceof Element)) throw new Error("Element not found");
+      node.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
+      return true;
+    })()`);
   }
 
   async focus(selectorOrRef: string): Promise<void> {
@@ -518,6 +829,11 @@ export class Page {
 
   async type(text: string, options?: { delay?: number }): Promise<TypeResult> {
     const delay = options?.delay ?? 0;
+
+    if (!delay) {
+      return this.insertText(text);
+    }
+
     const sleep = (ms: number) =>
       ms > 0 ? new Promise<void>((r) => setTimeout(r, ms)) : Promise.resolve();
 
@@ -565,6 +881,90 @@ export class Page {
     }
 
     return { typed: true };
+  }
+
+  async keyDown(key: string): Promise<void> {
+    const mapped = KEY_MAP[key] ?? MODIFIER_MAP[key];
+    if (mapped) {
+      await this.session.send("Input.dispatchKeyEvent", {
+        type: "rawKeyDown",
+        key: mapped.key,
+        code: mapped.code,
+        windowsVirtualKeyCode: mapped.keyCode,
+      });
+      return;
+    }
+    if (key.length === 1) {
+      await this.session.send("Input.dispatchKeyEvent", {
+        type: "rawKeyDown",
+        key,
+        text: key,
+        unmodifiedText: key,
+      });
+      return;
+    }
+    throw new Error(`Unknown key: ${key}`);
+  }
+
+  async keyUp(key: string): Promise<void> {
+    const mapped = KEY_MAP[key] ?? MODIFIER_MAP[key];
+    if (mapped) {
+      await this.session.send("Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key: mapped.key,
+        code: mapped.code,
+        windowsVirtualKeyCode: mapped.keyCode,
+      });
+      return;
+    }
+    if (key.length === 1) {
+      await this.session.send("Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key,
+      });
+      return;
+    }
+    throw new Error(`Unknown key: ${key}`);
+  }
+
+  async insertText(text: string): Promise<TypeResult> {
+    await this.session.send("Input.insertText", { text });
+    return { typed: true };
+  }
+
+  private async tryFastInsertInto(
+    selectorOrRef: string,
+    text: string,
+  ): Promise<boolean> {
+    await this.focus(selectorOrRef);
+    const inserted = await this.evaluateInPage<boolean>(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!node) return false;
+      const active = document.activeElement;
+      if (active !== node) return false;
+      const isTextInput = node instanceof HTMLTextAreaElement ||
+        (node instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "reset", "file", "range", "color"].includes((node.type || "text").toLowerCase()));
+      const isEditable = node instanceof HTMLElement && node.isContentEditable;
+      return isTextInput || isEditable;
+    })()`);
+    if (!inserted) return false;
+    await this.insertText(text);
+    return true;
+  }
+
+  async typeInto(
+    selectorOrRef: string,
+    text: string,
+    options?: { delay?: number },
+  ): Promise<TypeResult> {
+    if (
+      !options?.delay &&
+      (await this.tryFastInsertInto(selectorOrRef, text))
+    ) {
+      return { typed: true };
+    }
+    await this.focus(selectorOrRef);
+    return this.type(text, options);
   }
 
   async pressKey(key: string): Promise<void> {
@@ -639,19 +1039,190 @@ export class Page {
     value: string,
     options?: { pressEnter?: boolean },
   ): Promise<void> {
-    await this.focus(selectorOrRef);
-    await this.pressKey("Ctrl+A");
-    await this.type(value);
+    const fastFilled = await this.evaluateInPage<boolean>(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!node) return false;
+      const assign = (target, nextValue) => {
+        const proto = target instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+        const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+        descriptor?.set?.call(target, nextValue);
+      };
+      if (node instanceof HTMLTextAreaElement) {
+        assign(node, ${JSON.stringify(value)});
+        node.dispatchEvent(new Event("input", { bubbles: true }));
+        node.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      }
+      if (node instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "reset", "file", "range", "color"].includes((node.type || "text").toLowerCase())) {
+        assign(node, ${JSON.stringify(value)});
+        node.dispatchEvent(new Event("input", { bubbles: true }));
+        node.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      }
+      if (node instanceof HTMLElement && node.isContentEditable) {
+        node.textContent = ${JSON.stringify(value)};
+        node.dispatchEvent(new InputEvent("input", { bubbles: true, data: ${JSON.stringify(value)}, inputType: "insertText" }));
+        return true;
+      }
+      return false;
+    })()`);
+
+    if (!fastFilled) {
+      await this.focus(selectorOrRef);
+      await this.pressKey("Ctrl+A");
+      await this.type(value);
+    }
 
     if (options?.pressEnter !== false) {
       await this.pressKey("Enter");
     }
   }
 
+  async dragAndDrop(source: string, target: string): Promise<void> {
+    await this.evaluateInPage(`(() => {
+      const sourceNode = ${this.elementLookupExpression(source)};
+      const targetNode = ${this.elementLookupExpression(target)};
+      if (!(sourceNode instanceof Element) || !(targetNode instanceof Element)) {
+        throw new Error("Could not locate drag source or target");
+      }
+      const dataTransfer = new DataTransfer();
+      sourceNode.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer }));
+      targetNode.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer }));
+      targetNode.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+      targetNode.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+      sourceNode.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer }));
+      return true;
+    })()`);
+  }
+
+  async uploadFiles(
+    selectorOrRef: string,
+    files: UploadedFile[],
+  ): Promise<void> {
+    await this.evaluateInPage(`(() => {
+      const input = ${this.elementLookupExpression(selectorOrRef)};
+      if (!(input instanceof HTMLInputElement) || input.type !== "file") {
+        throw new Error("Target is not a file input");
+      }
+      const transfer = new DataTransfer();
+      for (const file of ${JSON.stringify(files)}) {
+        const binary = atob(file.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        transfer.items.add(new File([bytes], file.name, { type: file.type || "application/octet-stream" }));
+      }
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      return input.files?.length || 0;
+    })()`);
+  }
+
+  async getBox(selectorOrRef: string): Promise<BoxResult | null> {
+    return this.evaluateInPage(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!(node instanceof Element)) return null;
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    })()`);
+  }
+
+  async getStyles(selectorOrRef: string): Promise<Record<string, string>> {
+    return this.evaluateInPage(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!(node instanceof Element)) throw new Error("Element not found");
+      const style = getComputedStyle(node);
+      const out = {};
+      for (const name of Array.from(style)) out[name] = style.getPropertyValue(name);
+      return out;
+    })()`);
+  }
+
+  async getDownloadUrl(selectorOrRef: string): Promise<string | null> {
+    return this.evaluateInPage(`(() => {
+      const node = ${this.elementLookupExpression(selectorOrRef)};
+      if (!(node instanceof Element)) return null;
+      if (node instanceof HTMLAnchorElement || node instanceof HTMLAreaElement) return node.href;
+      if (node instanceof HTMLImageElement || node instanceof HTMLSourceElement) return node.src;
+      return node.getAttribute("href") || node.getAttribute("src") || node.getAttribute("data-url");
+    })()`);
+  }
+
+  async performFindAction(
+    locator: FindLocator,
+    action:
+      | "click"
+      | "fill"
+      | "type"
+      | "hover"
+      | "focus"
+      | "check"
+      | "uncheck"
+      | "text",
+    value?: string,
+  ): Promise<unknown> {
+    if (action === "text") {
+      return this.locatorText(locator);
+    }
+
+    if (action === "focus") {
+      await this.evaluateInPage(`(() => {
+        const node = ${this.locatorExpression(locator)};
+        if (!(node instanceof HTMLElement || node instanceof SVGElement)) throw new Error("Element not found");
+        node.focus();
+        return true;
+      })()`);
+      return { focused: true };
+    }
+
+    if (action === "fill" || action === "type") {
+      await this.evaluateInPage(`(() => {
+        const node = ${this.locatorExpression(locator)};
+        if (!(node instanceof HTMLElement || node instanceof SVGElement)) throw new Error("Element not found");
+        node.focus();
+        return true;
+      })()`);
+      if (action === "fill") {
+        await this.pressKey("Ctrl+A");
+      }
+      await this.type(value ?? "");
+      return { typed: true };
+    }
+
+    if (action === "check" || action === "uncheck") {
+      await this.evaluateInPage(`(() => {
+        const node = ${this.locatorExpression(locator)};
+        if (!(node instanceof Element)) throw new Error("Element not found");
+        if ("checked" in node) node.checked = ${action === "check" ? "true" : "false"};
+        node.dispatchEvent(new Event("input", { bubbles: true }));
+        node.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      })()`);
+      return { checked: action === "check" };
+    }
+
+    const box = await this.getLocatorCenter(locator);
+    if (!box) throw new Error("Element not found");
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    if (action === "hover") {
+      await this.hover(x, y);
+      return { hovered: true };
+    }
+    if (action === "click") {
+      return this.click(x, y);
+    }
+
+    throw new Error(`Unsupported locator action: ${action}`);
+  }
+
   async screenshot(options?: {
     fullPage?: boolean;
     format?: "png" | "jpeg";
     quality?: number;
+    selectorOrRef?: string;
   }): Promise<ScreenshotResult> {
     const format = options?.format ?? "png";
     const params: Protocol.Page.CaptureScreenshotRequest = {
@@ -659,6 +1230,21 @@ export class Page {
       fromSurface: true,
       captureBeyondViewport: options?.fullPage ?? false,
     };
+
+    if (options?.selectorOrRef) {
+      const box = await this.getBox(options.selectorOrRef);
+      if (!box) {
+        throw new Error(`Could not locate element: ${options.selectorOrRef}`);
+      }
+      params.clip = {
+        x: box.x,
+        y: box.y,
+        width: Math.max(1, box.width),
+        height: Math.max(1, box.height),
+        scale: 1,
+      };
+      params.captureBeyondViewport = false;
+    }
 
     if (format === "jpeg" && options?.quality !== undefined) {
       params.quality = Math.min(100, Math.max(0, Math.round(options.quality)));
@@ -682,18 +1268,21 @@ export class Page {
   async setViewport(
     width: number,
     height: number,
-    options?: { deviceScaleFactor?: number },
+    options?: { deviceScaleFactor?: number; mobile?: boolean },
   ): Promise<void> {
     await this.session.send("Emulation.setDeviceMetricsOverride", {
       width,
       height,
       deviceScaleFactor: options?.deviceScaleFactor ?? 1,
-      mobile: false,
+      mobile: options?.mobile ?? false,
     });
   }
 
   async setHeaders(headers: Record<string, string>): Promise<void> {
-    await this.session.send("Network.setExtraHTTPHeaders", { headers });
+    this.extraHeaders = { ...headers };
+    await this.session.send("Network.setExtraHTTPHeaders", {
+      headers: this.extraHeaders,
+    });
   }
 
   async setOffline(offline: boolean): Promise<void> {
@@ -707,10 +1296,40 @@ export class Page {
 
   async setMedia(
     colorScheme: "dark" | "light" | "no-preference",
+    reducedMotion: "reduce" | "no-preference" = "no-preference",
   ): Promise<void> {
     await this.session.send("Emulation.setEmulatedMedia", {
       media: "",
-      features: [{ name: "prefers-color-scheme", value: colorScheme }],
+      features: [
+        { name: "prefers-color-scheme", value: colorScheme },
+        { name: "prefers-reduced-motion", value: reducedMotion },
+      ],
+    });
+  }
+
+  async setCredentials(username: string, password: string): Promise<void> {
+    const authorization = `Basic ${btoa(`${username}:${password}`)}`;
+    await this.setHeaders({
+      ...this.extraHeaders,
+      Authorization: authorization,
+    });
+  }
+
+  async setDevice(name: string): Promise<void> {
+    const descriptor = DEVICE_DESCRIPTORS[name.trim().toLowerCase()];
+    if (!descriptor) {
+      throw new Error(`Unsupported device: ${name}`);
+    }
+    await this.setViewport(descriptor.width, descriptor.height, {
+      deviceScaleFactor: descriptor.deviceScaleFactor,
+      mobile: descriptor.mobile,
+    });
+    await this.session.send("Emulation.setUserAgentOverride", {
+      userAgent: descriptor.userAgent,
+      platform: descriptor.mobile ? "iPhone" : "Linux armv8l",
+    });
+    await this.session.send("Emulation.setTouchEmulationEnabled", {
+      enabled: descriptor.hasTouch ?? descriptor.mobile,
     });
   }
 
@@ -798,6 +1417,7 @@ export class Page {
       const matched = await this.evaluateInPage<boolean>(`(() => {
         const node = ${this.elementLookupExpression(selectorOrRef)};
         if (${JSON.stringify(state)} === "attached") return !!node;
+        if (${JSON.stringify(state)} === "detached") return !node;
         if (${JSON.stringify(state)} === "hidden") {
           if (!node || !(node instanceof Element)) return true;
           const style = getComputedStyle(node);

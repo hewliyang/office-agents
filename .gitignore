@@ -26,3 +26,6 @@ npm-debug.log*
 *.key
 *.pem
 headless-test/
+
+# Wrangler local state
+.wrangler/

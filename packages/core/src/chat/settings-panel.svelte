@@ -4,18 +4,27 @@
     buildAuthorizationUrl,
     exchangeOAuthCode,
     generatePKCE,
+    getApiKeyForProvider,
+    getAuthMethodForProvider,
+    getConfiguredProviders,
+    HIDDEN_PROVIDERS,
     listFetchProviders,
     listImageSearchProviders,
     listSearchProviders,
+    loadCustomEndpoint,
     loadOAuthCredentials,
     loadSavedConfig,
     loadWebConfig,
     OAUTH_PROVIDERS,
     removeOAuthCredentials,
+    removeProviderKey,
     saveConfig,
+    saveCustomEndpoint,
     saveOAuthCredentials,
+    saveProviderKey,
     saveWebConfig,
     THINKING_LEVELS,
+    type CustomEndpointConfig,
     type OAuthFlowState,
     type ThinkingLevel,
   } from "@office-agents/sdk";
@@ -23,9 +32,9 @@
     Check,
     ChevronDown,
     ChevronUp,
-    ExternalLink,
     Eye,
     EyeOff,
+    ExternalLink,
     FolderUp,
     LogOut,
     Plus,
@@ -41,18 +50,48 @@
   let fileInputRef = $state<HTMLInputElement | null>(null);
   let installing = $state(false);
 
+  // --- Model & general settings ---
   const saved = loadSavedConfig();
-  let provider = $state(saved?.provider || "");
-  let apiKey = $state(saved?.apiKey || "");
-  let model = $state(saved?.model || "");
-  let showKey = $state(false);
+  let selectedProvider = $state(saved?.provider || "");
+  let selectedModel = $state(saved?.model || "");
   let useProxy = $state(saved?.useProxy !== false);
   let proxyUrl = $state(saved?.proxyUrl || "");
   let thinking = $state<ThinkingLevel>(saved?.thinking || "none");
-  let apiType = $state(saved?.apiType || "openai-completions");
-  let customBaseUrl = $state(saved?.customBaseUrl || "");
-  let authMethod = $state<"apikey" | "oauth">(saved?.authMethod || "apikey");
 
+  // --- Custom endpoint ---
+  const savedCustom = loadCustomEndpoint();
+  let customApiType = $state(savedCustom?.apiType || "openai-completions");
+  let customBaseUrl = $state(savedCustom?.baseUrl || "");
+  let customModelId = $state(savedCustom?.modelId || "");
+  let customApiKey = $state(savedCustom?.apiKey || "");
+
+  // --- Provider keys ---
+  let providerKeyValues = $state<Record<string, string>>({});
+  let showProviderKeys = $state<Record<string, boolean>>({});
+
+  function loadKeyValues() {
+    const keys: Record<string, string> = {};
+    for (const p of chat.visibleProviders) {
+      keys[p] = getApiKeyForProvider(p);
+    }
+    providerKeyValues = keys;
+  }
+  loadKeyValues();
+
+  // --- OAuth ---
+  let oauthFlows = $state<Record<string, OAuthFlowState>>({});
+  let oauthCodeInputs = $state<Record<string, string>>({});
+
+  function initOAuthFlows() {
+    for (const provider of Object.keys(OAUTH_PROVIDERS)) {
+      const creds = loadOAuthCredentials(provider);
+      oauthFlows[provider] = creds ? { step: "connected" } : { step: "idle" };
+      oauthCodeInputs[provider] = "";
+    }
+  }
+  initOAuthFlows();
+
+  // --- Web settings ---
   const savedWeb = loadWebConfig();
   let webSearchProvider = $state(savedWeb.searchProvider);
   let imageSearchProvider = $state(savedWeb.imageSearchProvider);
@@ -62,26 +101,29 @@
   let exaApiKey = $state(savedWeb.apiKeys.exa || "");
   let browserUseApiKey = $state(savedWeb.apiKeys.browserUse || "");
   let browserbaseApiKey = $state(savedWeb.apiKeys.browserbase || "");
+  let webSearchEnabled = $state(savedWeb.enabled.webSearch);
+  let webFetchEnabled = $state(savedWeb.enabled.webFetch);
+  let browseEnabled = $state(savedWeb.enabled.browse);
   let showAdvancedWebKeys = $state(false);
 
-  let oauthFlow = $state<OAuthFlowState>(
-    saved?.authMethod === "oauth"
-      ? loadOAuthCredentials(saved.provider)
-        ? { step: "connected" }
-        : { step: "idle" }
-      : { step: "idle" },
-  );
-  let oauthCodeInput = $state("");
-
-  const followMode = $derived($runtimeState.providerConfig?.followMode ?? true);
+  // --- Deriveds ---
+  const isCustomSelected = $derived(selectedProvider === "custom");
   const expandToolCalls = $derived(
     $runtimeState.providerConfig?.expandToolCalls ?? false,
   );
-  const isCustom = $derived(provider === "custom");
-  const models = $derived(
-    provider && !isCustom ? chat.getModelsForProvider(provider) : [],
+  const followMode = $derived($runtimeState.providerConfig?.followMode ?? true);
+  const isConfigured = $derived($runtimeState.providerConfig !== null);
+
+  const availableModelGroups = $derived.by(() => {
+    // Trigger reactivity on providerKeyValues changes
+    void providerKeyValues;
+    return chat.getAvailableModels();
+  });
+
+  const hasCustomEndpoint = $derived(
+    !!(customBaseUrl && customModelId && customApiKey),
   );
-  const hasOAuth = $derived(provider in OAUTH_PROVIDERS);
+
   const searchProviders = listSearchProviders();
   const imageSearchProviders = listImageSearchProviders();
   const fetchProviders = listFetchProviders();
@@ -93,74 +135,190 @@
   const needsExaKey = $derived(
     webSearchProvider === "exa" || webFetchProvider === "exa",
   );
-  const isConfigured = $derived($runtimeState.providerConfig !== null);
-  const showApiKeyInput = $derived(!(hasOAuth && authMethod === "oauth"));
+
+  const oauthProviderIds = Object.keys(OAUTH_PROVIDERS);
+  const apiKeyProviders = $derived(
+    chat.visibleProviders.filter(
+      (p: string) => !HIDDEN_PROVIDERS.has(p),
+    ),
+  );
 
   const inputStyle =
     "border-radius: var(--chat-radius); font-family: var(--chat-font-mono)";
 
-  function updateAndSync(
-    updates: Partial<{
-      provider: string;
-      apiKey: string;
-      model: string;
-      useProxy: boolean;
-      proxyUrl: string;
-      thinking: ThinkingLevel;
-      apiType: string;
-      customBaseUrl: string;
-      authMethod: "apikey" | "oauth";
-    }>,
-  ) {
-    const nextProvider = updates.provider ?? provider;
-    const nextApiKey = updates.apiKey ?? apiKey;
-    const nextModel = updates.model ?? model;
-    const nextUseProxy = updates.useProxy ?? useProxy;
-    const nextProxyUrl = updates.proxyUrl ?? proxyUrl;
-    const nextThinking = updates.thinking ?? thinking;
-    const nextApiType = updates.apiType ?? apiType;
-    const nextCustomBaseUrl = updates.customBaseUrl ?? customBaseUrl;
-    const nextAuthMethod = updates.authMethod ?? authMethod;
+  // --- Sync config to runtime ---
+  function syncConfig() {
+    let provider: string;
+    let apiKey: string;
+    let model: string;
+    let authMethod: "apikey" | "oauth";
+    let apiType: string | undefined;
+    let customBaseUrlVal: string | undefined;
 
-    provider = nextProvider;
-    apiKey = nextApiKey;
-    model = nextModel;
-    useProxy = nextUseProxy;
-    proxyUrl = nextProxyUrl;
-    thinking = nextThinking;
-    apiType = nextApiType;
-    customBaseUrl = nextCustomBaseUrl;
-    authMethod = nextAuthMethod;
+    if (isCustomSelected) {
+      provider = "custom";
+      apiKey = customApiKey;
+      model = customModelId;
+      authMethod = "apikey";
+      apiType = customApiType;
+      customBaseUrlVal = customBaseUrl;
+    } else {
+      provider = selectedProvider;
+      model = selectedModel;
+      authMethod = getAuthMethodForProvider(provider);
+      apiKey = getApiKeyForProvider(provider);
+      apiType = undefined;
+      customBaseUrlVal = undefined;
+    }
 
-    const isValid =
-      nextProvider === "custom"
-        ? Boolean(
-            nextProvider &&
-              nextApiType &&
-              nextCustomBaseUrl &&
-              nextModel &&
-              nextApiKey,
-          )
-        : Boolean(nextProvider && nextApiKey && nextModel);
-
-    if (!isValid) return;
+    if (!provider || !model || !apiKey) return;
 
     const config = {
-      provider: nextProvider,
-      apiKey: nextApiKey,
-      model: nextModel,
-      useProxy: nextUseProxy,
-      proxyUrl: nextProxyUrl,
-      thinking: nextThinking,
+      provider,
+      apiKey,
+      model,
+      useProxy,
+      proxyUrl,
+      thinking,
       followMode,
       expandToolCalls,
-      apiType: nextApiType,
-      customBaseUrl: nextCustomBaseUrl,
-      authMethod: nextAuthMethod,
+      apiType: apiType || "",
+      customBaseUrl: customBaseUrlVal || "",
+      authMethod,
     };
 
     saveConfig(config);
     chat.setProviderConfig(config);
+  }
+
+  function handleModelSelect(value: string) {
+    if (value === "__custom__") {
+      selectedProvider = "custom";
+      selectedModel = "";
+      syncConfig();
+      return;
+    }
+
+    const sep = value.indexOf("/");
+    if (sep === -1) return;
+    const provider = value.substring(0, sep);
+    const modelId = value.substring(sep + 1);
+
+    selectedProvider = provider;
+    selectedModel = modelId;
+    syncConfig();
+  }
+
+  function handleProviderKeyChange(provider: string, key: string) {
+    providerKeyValues = { ...providerKeyValues, [provider]: key };
+    saveProviderKey(provider, key);
+
+    if (
+      !selectedProvider ||
+      selectedProvider === provider
+    ) {
+      syncConfig();
+    }
+  }
+
+  function handleProviderKeyRemove(provider: string) {
+    providerKeyValues = { ...providerKeyValues, [provider]: "" };
+    removeProviderKey(provider);
+
+    if (selectedProvider === provider) {
+      syncConfig();
+    }
+  }
+
+  function handleCustomEndpointChange() {
+    saveCustomEndpoint({
+      apiType: customApiType,
+      baseUrl: customBaseUrl,
+      modelId: customModelId,
+      apiKey: customApiKey,
+    });
+    if (isCustomSelected) {
+      syncConfig();
+    }
+  }
+
+  async function startOAuthLogin(provider: string) {
+    try {
+      const { verifier, challenge } = await generatePKCE();
+      const { url, oauthState } = buildAuthorizationUrl(
+        provider,
+        challenge,
+        verifier,
+      );
+      window.open(url, "_blank");
+      oauthFlows = {
+        ...oauthFlows,
+        [provider]: { step: "awaiting-code", verifier, oauthState },
+      };
+    } catch (error) {
+      oauthFlows = {
+        ...oauthFlows,
+        [provider]: {
+          step: "error",
+          message:
+            error instanceof Error ? error.message : "Failed to start OAuth",
+        },
+      };
+    }
+  }
+
+  async function submitOAuthCode(provider: string) {
+    const flow = oauthFlows[provider];
+    if (flow?.step !== "awaiting-code" || !oauthCodeInputs[provider]?.trim())
+      return;
+
+    oauthFlows = { ...oauthFlows, [provider]: { step: "exchanging" } };
+
+    try {
+      const credentials = await exchangeOAuthCode({
+        provider,
+        rawInput: oauthCodeInputs[provider].trim(),
+        verifier: flow.verifier,
+        expectedState: flow.oauthState,
+        useProxy,
+        proxyUrl,
+      });
+      saveOAuthCredentials(provider, credentials);
+      oauthFlows = { ...oauthFlows, [provider]: { step: "connected" } };
+      oauthCodeInputs = { ...oauthCodeInputs, [provider]: "" };
+      providerKeyValues = { ...providerKeyValues, [provider]: credentials.access };
+
+      if (selectedProvider === provider || !selectedProvider) {
+        selectedProvider = provider;
+        const models = chat.getModelsForProvider(provider);
+        if (models.length > 0 && !selectedModel) {
+          selectedModel = models[0].id;
+        }
+        syncConfig();
+      }
+    } catch (error) {
+      oauthFlows = {
+        ...oauthFlows,
+        [provider]: {
+          step: "error",
+          message:
+            error instanceof Error ? error.message : "OAuth failed",
+        },
+      };
+    }
+  }
+
+  function logoutOAuth(provider: string) {
+    removeOAuthCredentials(provider);
+    oauthFlows = { ...oauthFlows, [provider]: { step: "idle" } };
+    providerKeyValues = { ...providerKeyValues, [provider]: "" };
+
+    if (selectedProvider === provider) {
+      const keys = providerKeyValues;
+      if (!keys[provider]) {
+        syncConfig();
+      }
+    }
   }
 
   function updateWebSettings(
@@ -173,6 +331,11 @@
       exaApiKey: string;
       browserUseApiKey: string;
       browserbaseApiKey: string;
+      enabled: Partial<{
+        webSearch: boolean;
+        webFetch: boolean;
+        browse: boolean;
+      }>;
     }>,
   ) {
     webSearchProvider = updates.searchProvider ?? webSearchProvider;
@@ -196,96 +359,13 @@
         browserUse: browserUseApiKey,
         browserbase: browserbaseApiKey,
       },
+      enabled: {
+        webSearch: webSearchEnabled,
+        webFetch: webFetchEnabled,
+        browse: browseEnabled,
+        ...(updates.enabled || {}),
+      },
     });
-  }
-
-  function handleProviderChange(newProvider: string) {
-    if (newProvider === "custom") {
-      updateAndSync({ provider: newProvider, model: "", authMethod: "apikey" });
-    } else {
-      const providerModels = newProvider
-        ? chat.getModelsForProvider(newProvider)
-        : [];
-      const keepOAuth =
-        newProvider in OAUTH_PROVIDERS ? authMethod : "apikey";
-      updateAndSync({
-        provider: newProvider,
-        model: providerModels[0]?.id || "",
-        authMethod: keepOAuth,
-      });
-    }
-
-    if (!(newProvider in OAUTH_PROVIDERS)) {
-      oauthFlow = { step: "idle" };
-    }
-  }
-
-  function handleAuthMethodChange(newMethod: "apikey" | "oauth") {
-    if (newMethod === "oauth") {
-      const credentials = loadOAuthCredentials(provider);
-      if (credentials) {
-        oauthFlow = { step: "connected" };
-        updateAndSync({ authMethod: "oauth", apiKey: credentials.access });
-      } else {
-        authMethod = "oauth";
-        oauthFlow = { step: "idle" };
-      }
-      return;
-    }
-
-    oauthFlow = { step: "idle" };
-    updateAndSync({ authMethod: "apikey", apiKey: "" });
-  }
-
-  async function startOAuthLogin() {
-    try {
-      const { verifier, challenge } = await generatePKCE();
-      const { url, oauthState } = buildAuthorizationUrl(
-        provider,
-        challenge,
-        verifier,
-      );
-      window.open(url, "_blank");
-      oauthFlow = { step: "awaiting-code", verifier, oauthState };
-    } catch (error) {
-      oauthFlow = {
-        step: "error",
-        message: error instanceof Error ? error.message : "Failed to start OAuth",
-      };
-    }
-  }
-
-  async function submitOAuthCode() {
-    if (oauthFlow.step !== "awaiting-code" || !oauthCodeInput.trim()) return;
-
-    const pendingFlow = oauthFlow;
-    oauthFlow = { step: "exchanging" };
-
-    try {
-      const credentials = await exchangeOAuthCode({
-        provider,
-        rawInput: oauthCodeInput.trim(),
-        verifier: pendingFlow.verifier,
-        expectedState: pendingFlow.oauthState,
-        useProxy,
-        proxyUrl,
-      });
-      saveOAuthCredentials(provider, credentials);
-      oauthFlow = { step: "connected" };
-      oauthCodeInput = "";
-      updateAndSync({ apiKey: credentials.access, authMethod: "oauth" });
-    } catch (error) {
-      oauthFlow = {
-        step: "error",
-        message: error instanceof Error ? error.message : "OAuth failed",
-      };
-    }
-  }
-
-  function logoutOAuth() {
-    removeOAuthCredentials(provider);
-    oauthFlow = { step: "idle" };
-    updateAndSync({ authMethod: "apikey", apiKey: "" });
   }
 
   async function handleFolderSelect(event: Event) {
@@ -330,7 +410,7 @@
   </button>
 {/snippet}
 
-{#snippet apiKeyField(label: string, value: string, onInput: (v: string) => void, placeholder: string, altBg?: boolean)}
+{#snippet passwordField(label: string, value: string, onInput: (v: string) => void, placeholder: string, altBg?: boolean)}
   <label class="block">
     <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
       {label}
@@ -347,43 +427,313 @@
 {/snippet}
 
 <div class="flex-1 overflow-y-auto p-4 space-y-6" style="font-family: var(--chat-font-mono)">
+
+  <!-- ═══ MODEL SELECTION ═══ -->
   <div>
     <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted) mb-4">
-      api configuration
+      model
     </div>
 
     <div class="space-y-4">
       <label class="block">
-        <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-          Provider
-        </span>
         <select
-          value={provider}
+          value={isCustomSelected ? "__custom__" : `${selectedProvider}/${selectedModel}`}
           onchange={(event) =>
-            handleProviderChange((event.currentTarget as HTMLSelectElement).value)}
+            handleModelSelect((event.currentTarget as HTMLSelectElement).value)}
           class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
           style={inputStyle}
         >
-          <option value="">Select provider...</option>
-          {#each chat.availableProviders as availableProvider (availableProvider)}
-            <option value={availableProvider}>{availableProvider}</option>
+          {#if availableModelGroups.length === 0 && !hasCustomEndpoint}
+            <option value="" disabled selected>Add API keys below to see models…</option>
+          {/if}
+          {#each availableModelGroups as group (group.provider)}
+            <optgroup label={group.provider}>
+              {#each group.models as m (m.id)}
+                <option value={`${group.provider}/${m.id}`}>{m.name}</option>
+              {/each}
+            </optgroup>
           {/each}
-          <option disabled>──────────</option>
-          <option value="custom">Custom Endpoint</option>
+          {#if hasCustomEndpoint}
+            <optgroup label="Custom Endpoint">
+              <option value="__custom__">{customModelId}</option>
+            </optgroup>
+          {/if}
         </select>
       </label>
 
-      {#if isCustom}
+      {#if isConfigured}
+        <div class="flex items-center gap-2 text-xs">
+          <Check size={12} class="text-(--chat-success)" />
+          <span class="text-(--chat-text-secondary)">
+            Using
+            {#if $runtimeState.providerConfig?.provider === "custom"}
+              custom ({$runtimeState.providerConfig?.apiType})
+            {:else}
+              {$runtimeState.providerConfig?.provider}
+            {/if}
+            {$runtimeState.providerConfig?.authMethod === "oauth" ? " via OAuth" : ""}
+            — {$runtimeState.providerConfig?.model}
+          </span>
+        </div>
+      {:else}
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Configure at least one provider below to get started.
+        </p>
+      {/if}
+    </div>
+  </div>
+
+  <!-- ═══ THINKING LEVEL ═══ -->
+  <div class="border-t border-(--chat-border) pt-4">
+    <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
+      Thinking Level
+    </span>
+    <div class="flex gap-1">
+      {#each THINKING_LEVELS as level (level.value)}
+        <button
+          type="button"
+          onclick={() => { thinking = level.value; syncConfig(); }}
+          class={`flex-1 py-1.5 text-xs border transition-colors ${thinking === level.value ? "bg-(--chat-accent) border-(--chat-accent) text-white" : "bg-(--chat-input-bg) border-(--chat-border) text-(--chat-text-secondary) hover:border-(--chat-border-active)"}`}
+          style="border-radius: var(--chat-radius)"
+        >
+          {level.label}
+        </button>
+      {/each}
+    </div>
+    <p class="text-[10px] text-(--chat-text-muted) mt-1">
+      Extended thinking for supported models
+    </p>
+  </div>
+
+  <!-- ═══ API KEYS & LOGIN ═══ -->
+  <div class="border-t border-(--chat-border) pt-4">
+    <details class="group">
+      <summary class="flex items-center gap-1.5 cursor-pointer select-none mb-3">
+        <ChevronDown size={12} class="text-(--chat-text-muted) group-open:hidden" />
+        <ChevronUp size={12} class="text-(--chat-text-muted) hidden group-open:inline" />
+        <span class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
+          api keys & login
+        </span>
+        {#if getConfiguredProviders().length > 0}
+          <span class="text-[10px] text-(--chat-text-muted)">
+            ({getConfiguredProviders().length} configured)
+          </span>
+        {/if}
+      </summary>
+
+      <div class="space-y-4">
+        <!-- OAuth Logins -->
+        <div>
+          <p class="text-[10px] text-(--chat-text-muted) mb-2">
+            Log in with your existing subscription, or enter API keys below.
+          </p>
+          <div class="space-y-2">
+            {#each oauthProviderIds as provider (provider)}
+              {@const flow = oauthFlows[provider] || { step: "idle" }}
+              {@const providerLabel = OAUTH_PROVIDERS[provider]?.label ?? provider}
+              <div
+                class="px-3 py-2.5 bg-(--chat-input-bg) border border-(--chat-border)"
+                style="border-radius: var(--chat-radius)"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-(--chat-text-primary)">
+                      {provider}
+                    </div>
+                    <div class="text-[10px] text-(--chat-text-muted) mt-0.5">
+                      {providerLabel}
+                    </div>
+                  </div>
+                  {#if flow.step === "connected"}
+                    <div class="flex items-center gap-2">
+                      <Check size={10} class="text-(--chat-success)" />
+                      <button
+                        type="button"
+                        onclick={() => logoutOAuth(provider)}
+                        class="flex items-center gap-1 text-[10px] text-(--chat-text-muted) hover:text-(--chat-error) transition-colors"
+                      >
+                        <LogOut size={10} />
+                        Logout
+                      </button>
+                    </div>
+                  {:else if flow.step === "exchanging"}
+                    <span class="text-[10px] text-(--chat-text-muted)">Exchanging…</span>
+                  {:else}
+                    <button
+                      type="button"
+                      onclick={() => startOAuthLogin(provider)}
+                      class="flex items-center gap-1 px-2.5 py-1 text-[10px] bg-(--chat-bg) border border-(--chat-border) text-(--chat-text-secondary) hover:border-(--chat-accent) hover:text-(--chat-accent) transition-colors"
+                      style="border-radius: var(--chat-radius)"
+                    >
+                      <ExternalLink size={10} />
+                      Login
+                    </button>
+                  {/if}
+                </div>
+
+                {#if flow.step === "awaiting-code"}
+                  <div class="mt-2 space-y-1.5">
+                    <p class="text-[10px] text-(--chat-text-muted)">
+                      {provider === "openai-codex"
+                        ? "Paste the full redirect URL:"
+                        : "Paste the code from the redirect page:"}
+                    </p>
+                    <div class="flex gap-1">
+                      <input
+                        type="text"
+                        value={oauthCodeInputs[provider] || ""}
+                        oninput={(e) => { oauthCodeInputs = { ...oauthCodeInputs, [provider]: (e.currentTarget as HTMLInputElement).value }; }}
+                        placeholder={provider === "openai-codex" ? "Paste redirect URL" : "Paste code#state"}
+                        class="flex-1 bg-(--chat-bg) text-(--chat-text-primary) text-sm px-3 py-1.5 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
+                        style={inputStyle}
+                        onkeydown={(event) => event.key === "Enter" && submitOAuthCode(provider)}
+                      />
+                      <button
+                        type="button"
+                        onclick={() => submitOAuthCode(provider)}
+                        disabled={!oauthCodeInputs[provider]?.trim()}
+                        class="px-2.5 py-1.5 text-xs bg-(--chat-accent) text-white border border-(--chat-accent) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        style="border-radius: var(--chat-radius)"
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </div>
+                {/if}
+
+                {#if flow.step === "error"}
+                  <div class="mt-2 space-y-1">
+                    <div class="text-[10px] text-(--chat-error)">{flow.message}</div>
+                    <button
+                      type="button"
+                      onclick={() => { oauthFlows = { ...oauthFlows, [provider]: { step: "idle" } }; }}
+                      class="text-[10px] text-(--chat-text-muted) hover:text-(--chat-text-secondary)"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- API Keys -->
+        <div class="space-y-2">
+          <div class="text-[10px] text-(--chat-text-muted)">
+            API Keys
+          </div>
+          {#each apiKeyProviders as provider (provider)}
+            {@const hasKey = !!(providerKeyValues[provider])}
+            {@const isShown = showProviderKeys[provider]}
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-(--chat-text-secondary) w-24 shrink-0 truncate" title={provider}>
+                {provider}
+              </span>
+              <div class="relative flex-1">
+                <input
+                  type={isShown ? "text" : "password"}
+                  value={providerKeyValues[provider] || ""}
+                  oninput={(e) => handleProviderKeyChange(provider, (e.currentTarget as HTMLInputElement).value)}
+                  placeholder="API key"
+                  class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-1.5 pr-8 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
+                  style={inputStyle}
+                />
+                {#if hasKey}
+                  <button
+                    type="button"
+                    onclick={() => { showProviderKeys = { ...showProviderKeys, [provider]: !isShown }; }}
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-(--chat-text-muted) hover:text-(--chat-text-secondary)"
+                  >
+                    {#if isShown}
+                      <EyeOff size={12} />
+                    {:else}
+                      <Eye size={12} />
+                    {/if}
+                  </button>
+                {/if}
+              </div>
+              {#if hasKey}
+                <Check size={12} class="text-(--chat-success) shrink-0" />
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Keys are stored locally in your browser. Add keys for any provider to see its models above.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ═══ CORS PROXY ═══ -->
+  <div class="border-t border-(--chat-border) pt-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-(--chat-text-secondary)">
+          CORS Proxy
+        </span>
+        <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
+          Required for Anthropic and some providers
+        </p>
+      </div>
+      {@render toggleSwitch(
+        useProxy,
+        () => { useProxy = !useProxy; syncConfig(); },
+        useProxy ? "Disable CORS proxy" : "Enable CORS proxy",
+      )}
+    </div>
+
+    {#if useProxy}
+      <label class="block">
+        <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
+          Proxy URL
+        </span>
+        <input
+          type="text"
+          bind:value={proxyUrl}
+          oninput={() => syncConfig()}
+          placeholder="https://your-proxy.com/proxy"
+          class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
+          style={inputStyle}
+        />
+        <p class="text-[10px] text-(--chat-text-muted) mt-1">
+          Your proxy should accept ?url=encoded_url format
+        </p>
+      </label>
+    {/if}
+  </div>
+
+  <!-- ═══ CUSTOM ENDPOINT ═══ -->
+  <div class="border-t border-(--chat-border) pt-4">
+    <details class="group">
+      <summary class="flex items-center gap-1.5 cursor-pointer select-none mb-3">
+        <ChevronDown size={12} class="text-(--chat-text-muted) group-open:hidden" />
+        <ChevronUp size={12} class="text-(--chat-text-muted) hidden group-open:inline" />
+        <span class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
+          custom endpoint
+        </span>
+        {#if hasCustomEndpoint}
+          <Check size={10} class="text-(--chat-success)" />
+        {/if}
+      </summary>
+
+      <div class="space-y-3">
+        <p class="text-[10px] text-(--chat-text-muted)">
+          Connect to any compatible API (Ollama, vLLM, LMStudio, etc.)
+        </p>
+
         <label class="block">
           <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
             API Type
           </span>
           <select
-            value={apiType}
-            onchange={(event) =>
-              updateAndSync({
-                apiType: (event.currentTarget as HTMLSelectElement).value,
-              })}
+            value={customApiType}
+            onchange={(event) => {
+              customApiType = (event.currentTarget as HTMLSelectElement).value;
+              handleCustomEndpointChange();
+            }}
             class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
             style={inputStyle}
           >
@@ -392,7 +742,7 @@
             {/each}
           </select>
           <p class="text-[10px] text-(--chat-text-muted) mt-1">
-            {API_TYPES.find((type) => type.id === apiType)?.hint}
+            {API_TYPES.find((type) => type.id === customApiType)?.hint}
           </p>
         </label>
 
@@ -403,14 +753,11 @@
           <input
             type="text"
             bind:value={customBaseUrl}
-            oninput={() => updateAndSync({ customBaseUrl })}
+            oninput={() => handleCustomEndpointChange()}
             placeholder="https://api.openai.com/v1"
             class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
             style={inputStyle}
           />
-          <p class="text-[10px] text-(--chat-text-muted) mt-1">
-            The API endpoint URL for your provider
-          </p>
         </label>
 
         <label class="block">
@@ -419,446 +766,270 @@
           </span>
           <input
             type="text"
-            bind:value={model}
-            oninput={() => updateAndSync({ model })}
+            bind:value={customModelId}
+            oninput={() => handleCustomEndpointChange()}
             placeholder="gpt-4o"
             class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
             style={inputStyle}
           />
         </label>
-      {/if}
 
-      {#if !isCustom && provider}
-        <label class="block">
-          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-            Model
-          </span>
-          <select
-            value={model}
-            onchange={(event) =>
-              updateAndSync({ model: (event.currentTarget as HTMLSelectElement).value })}
-            class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active) disabled:opacity-50 disabled:cursor-not-allowed"
-            style={inputStyle}
-          >
-            <option value="">Select model...</option>
-            {#each models as availableModel (availableModel.id)}
-              <option value={availableModel.id}>{availableModel.name}</option>
-            {/each}
-          </select>
-        </label>
-      {/if}
-
-      {#if hasOAuth}
-        <div>
-          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-            Authentication
-          </span>
-          <div class="flex gap-1">
-            <button
-              type="button"
-              onclick={() => handleAuthMethodChange("apikey")}
-              class={`flex-1 py-1.5 text-xs border transition-colors ${authMethod === "apikey" ? "bg-(--chat-accent) border-(--chat-accent) text-white" : "bg-(--chat-input-bg) border-(--chat-border) text-(--chat-text-secondary) hover:border-(--chat-border-active)"}`}
-              style="border-radius: var(--chat-radius)"
-            >
-              API Key
-            </button>
-            <button
-              type="button"
-              onclick={() => handleAuthMethodChange("oauth")}
-              class={`flex-1 py-1.5 text-xs border transition-colors ${authMethod === "oauth" ? "bg-(--chat-accent) border-(--chat-accent) text-white" : "bg-(--chat-input-bg) border-(--chat-border) text-(--chat-text-secondary) hover:border-(--chat-border-active)"}`}
-              style="border-radius: var(--chat-radius)"
-            >
-              {OAUTH_PROVIDERS[provider]?.label ?? "OAuth"}
-            </button>
-          </div>
-        </div>
-      {/if}
-
-      {#if hasOAuth && authMethod === "oauth"}
-        <div class="space-y-2">
-          {#if oauthFlow.step === "idle"}
-            <button
-              type="button"
-              onclick={startOAuthLogin}
-              class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs bg-(--chat-input-bg) border border-(--chat-border) text-(--chat-text-primary) hover:border-(--chat-accent) hover:text-(--chat-accent) transition-colors"
-              style="border-radius: var(--chat-radius)"
-            >
-              <ExternalLink size={12} />
-              {OAUTH_PROVIDERS[provider]?.buttonText ?? "Login"}
-            </button>
-          {:else if oauthFlow.step === "awaiting-code"}
-            <div class="space-y-2">
-              <p class="text-[10px] text-(--chat-text-muted)">
-                {provider === "openai-codex"
-                  ? "Complete login in the opened tab. The page will redirect to localhost and fail — copy the full URL from your browser's address bar and paste it below:"
-                  : "Authorize in the opened tab, then paste the code shown on the redirect page:"}
-              </p>
-              <div class="flex gap-1">
-                <input
-                  type="text"
-                  bind:value={oauthCodeInput}
-                  placeholder={provider === "openai-codex" ? "Paste the full redirect URL here" : "Paste code#state here"}
-                  class="flex-1 bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
-                  style={inputStyle}
-                  onkeydown={(event) => event.key === "Enter" && submitOAuthCode()}
-                />
-                <button
-                  type="button"
-                  onclick={submitOAuthCode}
-                  disabled={!oauthCodeInput.trim()}
-                  class="px-3 py-2 text-xs bg-(--chat-accent) text-white border border-(--chat-accent) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style="border-radius: var(--chat-radius)"
-                >
-                  Submit
-                </button>
-              </div>
-              <p class="text-[10px] text-(--chat-text-muted)">
-                Requires CORS proxy to be enabled for token exchange.
-              </p>
-            </div>
-          {:else if oauthFlow.step === "exchanging"}
-            <div
-              class="px-3 py-2.5 text-xs text-(--chat-text-muted) bg-(--chat-input-bg) border border-(--chat-border)"
-              style="border-radius: var(--chat-radius)"
-            >
-              Exchanging authorization code…
-            </div>
-          {:else if oauthFlow.step === "connected"}
-            <div
-              class="flex items-center justify-between px-3 py-2.5 bg-(--chat-input-bg) border border-(--chat-border)"
-              style="border-radius: var(--chat-radius)"
-            >
-              <div class="flex items-center gap-2 text-xs">
-                <Check size={12} class="text-(--chat-success)" />
-                <span class="text-(--chat-text-secondary)">
-                  Connected via OAuth
-                </span>
-              </div>
-              <button
-                type="button"
-                onclick={logoutOAuth}
-                class="flex items-center gap-1 text-[10px] text-(--chat-text-muted) hover:text-(--chat-error) transition-colors"
-              >
-                <LogOut size={10} />
-                Logout
-              </button>
-            </div>
-          {:else if oauthFlow.step === "error"}
-            <div class="space-y-2">
-              <div
-                class="px-3 py-2 text-xs text-(--chat-error) bg-(--chat-input-bg) border border-(--chat-error)/30"
-                style="border-radius: var(--chat-radius)"
-              >
-                {oauthFlow.message}
-              </div>
-              <button
-                type="button"
-                onclick={() => (oauthFlow = { step: "idle" })}
-                class="text-[10px] text-(--chat-text-muted) hover:text-(--chat-text-secondary) transition-colors"
-              >
-                Try again
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      {#if showApiKeyInput}
         <label class="block">
           <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
             API Key
           </span>
-          <div class="relative">
-            <input
-              type={showKey ? "text" : "password"}
-              bind:value={apiKey}
-              oninput={() => updateAndSync({ apiKey })}
-              placeholder="Enter your API key"
-              class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 pr-10 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onclick={() => (showKey = !showKey)}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-(--chat-text-muted) hover:text-(--chat-text-secondary)"
-            >
-              {#if showKey}
-                <EyeOff size={14} />
-              {:else}
-                <Eye size={14} />
-              {/if}
-            </button>
-          </div>
-        </label>
-      {/if}
-
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="text-xs text-(--chat-text-secondary)">
-            CORS Proxy
-          </span>
-          <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
-            Required for Anthropic and some providers
-          </p>
-        </div>
-        {@render toggleSwitch(
-          useProxy,
-          () => updateAndSync({ useProxy: !useProxy }),
-          useProxy ? "Disable CORS proxy" : "Enable CORS proxy",
-        )}
-      </div>
-
-      {#if useProxy}
-        <label class="block">
-          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-            Proxy URL
-          </span>
           <input
-            type="text"
-            bind:value={proxyUrl}
-            oninput={() => updateAndSync({ proxyUrl })}
-            placeholder="https://your-proxy.com/proxy"
+            type="password"
+            bind:value={customApiKey}
+            oninput={() => handleCustomEndpointChange()}
+            placeholder="Enter API key"
             class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) placeholder:text-(--chat-text-muted) focus:outline-none focus:border-(--chat-border-active)"
             style={inputStyle}
           />
-          <p class="text-[10px] text-(--chat-text-muted) mt-1">
-            Your proxy should accept ?url=encoded_url format
-          </p>
         </label>
-      {/if}
+      </div>
+    </details>
+  </div>
 
+  <!-- ═══ EXPAND TOOL CALLS ═══ -->
+  <div class="border-t border-(--chat-border) pt-4">
+    <div class="flex items-center justify-between">
       <div>
-        <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-          Thinking Level
+        <span class="text-xs text-(--chat-text-secondary)">
+          Expand Tool Calls
         </span>
-        <div class="flex gap-1">
-          {#each THINKING_LEVELS as level (level.value)}
-            <button
-              type="button"
-              onclick={() => updateAndSync({ thinking: level.value })}
-              class={`flex-1 py-1.5 text-xs border transition-colors ${thinking === level.value ? "bg-(--chat-accent) border-(--chat-accent) text-white" : "bg-(--chat-input-bg) border-(--chat-border) text-(--chat-text-secondary) hover:border-(--chat-border-active)"}`}
-              style="border-radius: var(--chat-radius)"
-            >
-              {level.label}
-            </button>
-          {/each}
-        </div>
-        <p class="text-[10px] text-(--chat-text-muted) mt-1">
-          Extended thinking for supported models
+        <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
+          Show tool call details expanded by default
         </p>
       </div>
-
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="text-xs text-(--chat-text-secondary)">
-            Expand Tool Calls
-          </span>
-          <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
-            Show tool call details expanded by default
-          </p>
-        </div>
-        {@render toggleSwitch(
-          expandToolCalls,
-          () => chat.toggleExpandToolCalls(),
-          expandToolCalls ? "Collapse tool calls by default" : "Expand tool calls by default",
-        )}
-      </div>
-
-      <div class="border-t border-(--chat-border) pt-4 space-y-3">
-        <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
-          web tools
-        </div>
-
-        <label class="block">
-          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-            Default Search Provider
-          </span>
-          <select
-            value={webSearchProvider}
-            onchange={(event) =>
-              updateWebSettings({
-                searchProvider: (event.currentTarget as HTMLSelectElement).value,
-              })}
-            class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
-            style={inputStyle}
-          >
-            {#each searchProviders as searchProvider (searchProvider.id)}
-              <option value={searchProvider.id}>{searchProvider.label}</option>
-            {/each}
-          </select>
-          <p class="text-[10px] text-(--chat-text-muted) mt-1">
-            Used by web-search.
-          </p>
-        </label>
-
-        {#if adapter.hasImageSearch}
-          <label class="block">
-            <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-              Default Image Search Provider
-            </span>
-            <select
-              value={imageSearchProvider}
-              onchange={(event) =>
-                updateWebSettings({
-                  imageSearchProvider:
-                    (event.currentTarget as HTMLSelectElement).value,
-                })}
-              class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
-              style={inputStyle}
-            >
-              {#each imageSearchProviders as imageProvider (imageProvider.id)}
-                <option value={imageProvider.id}>{imageProvider.label}</option>
-              {/each}
-            </select>
-            <p class="text-[10px] text-(--chat-text-muted) mt-1">
-              Used by image-search.
-            </p>
-          </label>
-        {/if}
-
-        <label class="block">
-          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
-            Default Fetch Provider
-          </span>
-          <select
-            value={webFetchProvider}
-            onchange={(event) =>
-              updateWebSettings({
-                fetchProvider: (event.currentTarget as HTMLSelectElement).value,
-              })}
-            class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
-            style={inputStyle}
-          >
-            {#each fetchProviders as fetchProvider (fetchProvider)}
-              <option value={fetchProvider}>{fetchProvider}</option>
-            {/each}
-          </select>
-          <p class="text-[10px] text-(--chat-text-muted) mt-1">
-            Used by web-fetch.
-          </p>
-        </label>
-
-        {#if needsBraveKey}
-          {@render apiKeyField("Brave API Key", braveApiKey, (v) => { braveApiKey = v; updateWebSettings({ braveApiKey }); }, "Required for Brave search")}
-        {/if}
-
-        {#if needsSerperKey}
-          {@render apiKeyField("Serper API Key", serperApiKey, (v) => { serperApiKey = v; updateWebSettings({ serperApiKey }); }, "Required for Serper search")}
-        {/if}
-
-        {#if needsExaKey}
-          {@render apiKeyField("Exa API Key", exaApiKey, (v) => { exaApiKey = v; updateWebSettings({ exaApiKey }); }, "Required for Exa search/fetch")}
-        {/if}
-
-        <div class="pt-1">
-          <button
-            type="button"
-            onclick={() => (showAdvancedWebKeys = !showAdvancedWebKeys)}
-            class="inline-flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary)"
-          >
-            {#if showAdvancedWebKeys}
-              <ChevronUp size={12} />
-            {:else}
-              <ChevronDown size={12} />
-            {/if}
-            <span>
-              {showAdvancedWebKeys ? "Hide" : "Show"} advanced saved API keys
-            </span>
-          </button>
-        </div>
-
-        {#if showAdvancedWebKeys}
-          <div class="space-y-3 border border-(--chat-border) p-3 bg-(--chat-input-bg)">
-            {#if !needsBraveKey}
-              {@render apiKeyField("Brave API Key", braveApiKey, (v) => { braveApiKey = v; updateWebSettings({ braveApiKey }); }, "Optional", true)}
-            {/if}
-
-            {#if !needsSerperKey}
-              {@render apiKeyField("Serper API Key", serperApiKey, (v) => { serperApiKey = v; updateWebSettings({ serperApiKey }); }, "Optional", true)}
-            {/if}
-
-            {#if !needsExaKey}
-              {@render apiKeyField("Exa API Key", exaApiKey, (v) => { exaApiKey = v; updateWebSettings({ exaApiKey }); }, "Optional", true)}
-            {/if}
-          </div>
-        {/if}
-      </div>
+      {@render toggleSwitch(
+        expandToolCalls,
+        () => chat.toggleExpandToolCalls(),
+        expandToolCalls ? "Collapse tool calls by default" : "Expand tool calls by default",
+      )}
     </div>
   </div>
 
+  <!-- ═══ WEB TOOLS ═══ -->
+  <div class="border-t border-(--chat-border) pt-4 space-y-3">
+    <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
+      web tools
+    </div>
+
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-(--chat-text-secondary)">
+          Web Search
+        </span>
+        <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
+          Enable the <code class="text-(--chat-text-secondary)">web-search</code> command
+        </p>
+      </div>
+      {@render toggleSwitch(
+        webSearchEnabled,
+        () => { webSearchEnabled = !webSearchEnabled; updateWebSettings({ enabled: { webSearch: webSearchEnabled } }); },
+        webSearchEnabled ? "Disable web search" : "Enable web search",
+      )}
+    </div>
+
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-(--chat-text-secondary)">
+          Web Fetch
+        </span>
+        <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
+          Enable the <code class="text-(--chat-text-secondary)">web-fetch</code> command
+        </p>
+      </div>
+      {@render toggleSwitch(
+        webFetchEnabled,
+        () => { webFetchEnabled = !webFetchEnabled; updateWebSettings({ enabled: { webFetch: webFetchEnabled } }); },
+        webFetchEnabled ? "Disable web fetch" : "Enable web fetch",
+      )}
+    </div>
+
+    {#if webSearchEnabled}
+      <label class="block">
+        <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
+          Default Search Provider
+        </span>
+        <select
+          value={webSearchProvider}
+          onchange={(event) =>
+            updateWebSettings({
+              searchProvider: (event.currentTarget as HTMLSelectElement).value,
+            })}
+          class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
+          style={inputStyle}
+        >
+          {#each searchProviders as sp (sp.id)}
+            <option value={sp.id}>{sp.label}</option>
+          {/each}
+        </select>
+      </label>
+
+      {#if adapter.hasImageSearch}
+        <label class="block">
+          <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
+            Default Image Search Provider
+          </span>
+          <select
+            value={imageSearchProvider}
+            onchange={(event) =>
+              updateWebSettings({
+                imageSearchProvider:
+                  (event.currentTarget as HTMLSelectElement).value,
+              })}
+            class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
+            style={inputStyle}
+          >
+            {#each imageSearchProviders as ip (ip.id)}
+              <option value={ip.id}>{ip.label}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+    {/if}
+
+    {#if webFetchEnabled}
+      <label class="block">
+        <span class="block text-xs text-(--chat-text-secondary) mb-1.5">
+          Default Fetch Provider
+        </span>
+        <select
+          value={webFetchProvider}
+          onchange={(event) =>
+            updateWebSettings({
+              fetchProvider: (event.currentTarget as HTMLSelectElement).value,
+            })}
+          class="w-full bg-(--chat-input-bg) text-(--chat-text-primary) text-sm px-3 py-2 border border-(--chat-border) focus:outline-none focus:border-(--chat-border-active)"
+          style={inputStyle}
+        >
+          {#each fetchProviders as fp (fp)}
+            <option value={fp}>{fp}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+
+    {#if webSearchEnabled || webFetchEnabled}
+      {#if needsBraveKey}
+        {@render passwordField("Brave API Key", braveApiKey, (v) => { braveApiKey = v; updateWebSettings({ braveApiKey }); }, "Required for Brave search")}
+      {/if}
+
+      {#if needsSerperKey}
+        {@render passwordField("Serper API Key", serperApiKey, (v) => { serperApiKey = v; updateWebSettings({ serperApiKey }); }, "Required for Serper search")}
+      {/if}
+
+      {#if needsExaKey}
+        {@render passwordField("Exa API Key", exaApiKey, (v) => { exaApiKey = v; updateWebSettings({ exaApiKey }); }, "Required for Exa search/fetch")}
+      {/if}
+
+      <div class="pt-1">
+        <button
+          type="button"
+          onclick={() => (showAdvancedWebKeys = !showAdvancedWebKeys)}
+          class="inline-flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary)"
+        >
+          {#if showAdvancedWebKeys}
+            <ChevronUp size={12} />
+          {:else}
+            <ChevronDown size={12} />
+          {/if}
+          <span>
+            {showAdvancedWebKeys ? "Hide" : "Show"} advanced saved API keys
+          </span>
+        </button>
+      </div>
+
+      {#if showAdvancedWebKeys}
+        <div class="space-y-3 border border-(--chat-border) p-3 bg-(--chat-input-bg)">
+          {#if !needsBraveKey}
+            {@render passwordField("Brave API Key", braveApiKey, (v) => { braveApiKey = v; updateWebSettings({ braveApiKey }); }, "Optional", true)}
+          {/if}
+
+          {#if !needsSerperKey}
+            {@render passwordField("Serper API Key", serperApiKey, (v) => { serperApiKey = v; updateWebSettings({ serperApiKey }); }, "Optional", true)}
+          {/if}
+
+          {#if !needsExaKey}
+            {@render passwordField("Exa API Key", exaApiKey, (v) => { exaApiKey = v; updateWebSettings({ exaApiKey }); }, "Optional", true)}
+          {/if}
+        </div>
+      {/if}
+    {/if}
+  </div>
+
+  <!-- ═══ CLOUD BROWSER ═══ -->
   <div class="border-t border-(--chat-border) pt-4 space-y-3">
     <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted)">
       cloud browser
     </div>
 
-    <p class="text-[10px] text-(--chat-text-muted)">
-      Configure a cloud browser provider to enable the <code class="text-(--chat-text-secondary)">browse</code> command.
-      The agent can navigate pages, click elements, take screenshots, and extract data.
-      Configure one of the providers below.
-    </p>
-
-    <details class="group">
-      <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
-        <ChevronDown size={12} class="group-open:hidden" />
-        <ChevronUp size={12} class="hidden group-open:inline" />
-        Browser Use
-        {#if browserUseApiKey}
-          <Check size={10} class="text-(--chat-success)" />
-        {/if}
-      </summary>
-      <div class="mt-2 space-y-2 pl-0.5">
-        {@render apiKeyField("API Key", browserUseApiKey, (v) => { browserUseApiKey = v; updateWebSettings({ browserUseApiKey }); }, "bu-api-...")}
-        <p class="text-[10px] text-(--chat-text-muted)">
-          Get an API key at <a href="https://cloud.browser-use.com/new-api-key" target="_blank" class="underline hover:text-(--chat-text-secondary)">cloud.browser-use.com</a>
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-(--chat-text-secondary)">
+          Browse
+        </span>
+        <p class="text-[10px] text-(--chat-text-muted) mt-0.5">
+          Enable the <code class="text-(--chat-text-secondary)">browse</code> command
         </p>
       </div>
-    </details>
-
-    <details class="group">
-      <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
-        <ChevronDown size={12} class="group-open:hidden" />
-        <ChevronUp size={12} class="hidden group-open:inline" />
-        Browserbase
-        {#if browserbaseApiKey}
-          <Check size={10} class="text-(--chat-success)" />
-        {/if}
-      </summary>
-      <div class="mt-2 space-y-2 pl-0.5">
-        {@render apiKeyField("API Key", browserbaseApiKey, (v) => { browserbaseApiKey = v; updateWebSettings({ browserbaseApiKey }); }, "bb_live_...")}
-        <p class="text-[10px] text-(--chat-text-muted)">
-          Get an API key at <a href="https://www.browserbase.com/settings" target="_blank" class="underline hover:text-(--chat-text-secondary)">browserbase.com/settings</a>
-        </p>
-        {#if browserbaseApiKey && browserUseApiKey}
-          <p class="text-[10px] text-(--chat-text-muted) italic">
-            Both providers configured — Browserbase will be used.
-          </p>
-        {/if}
-      </div>
-    </details>
-
-  </div>
-
-  <div class="border-t border-(--chat-border) pt-4">
-    <div class="flex items-center gap-2 text-xs">
-      {#if isConfigured}
-        <Check size={12} class="text-(--chat-success)" />
-        <span class="text-(--chat-text-secondary)">
-          Using
-          {#if $runtimeState.providerConfig?.provider === "custom"}
-            custom ({$runtimeState.providerConfig?.apiType})
-          {:else}
-            {$runtimeState.providerConfig?.provider}
-          {/if}
-          {$runtimeState.providerConfig?.authMethod === "oauth" ? " via OAuth" : ""}
-        </span>
-      {:else}
-        <span class="text-(--chat-text-muted)">
-          Fill in all fields above to get started
-        </span>
-      {/if}
+      {@render toggleSwitch(
+        browseEnabled,
+        () => { browseEnabled = !browseEnabled; updateWebSettings({ enabled: { browse: browseEnabled } }); },
+        browseEnabled ? "Disable cloud browser" : "Enable cloud browser",
+      )}
     </div>
+
+    {#if browseEnabled}
+      <p class="text-[10px] text-(--chat-text-muted)">
+        Configure a cloud browser provider.
+        The agent can navigate pages, click elements, take screenshots, and extract data.
+      </p>
+
+      <details class="group">
+        <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
+          <ChevronDown size={12} class="group-open:hidden" />
+          <ChevronUp size={12} class="hidden group-open:inline" />
+          Browser Use
+          {#if browserUseApiKey}
+            <Check size={10} class="text-(--chat-success)" />
+          {/if}
+        </summary>
+        <div class="mt-2 space-y-2 pl-0.5">
+          {@render passwordField("API Key", browserUseApiKey, (v) => { browserUseApiKey = v; updateWebSettings({ browserUseApiKey }); }, "bu-api-...")}
+          <p class="text-[10px] text-(--chat-text-muted)">
+            Get an API key at <a href="https://cloud.browser-use.com/new-api-key" target="_blank" class="underline hover:text-(--chat-text-secondary)">cloud.browser-use.com</a>
+          </p>
+        </div>
+      </details>
+
+      <details class="group">
+        <summary class="flex items-center gap-1.5 text-xs text-(--chat-text-secondary) hover:text-(--chat-text-primary) cursor-pointer select-none">
+          <ChevronDown size={12} class="group-open:hidden" />
+          <ChevronUp size={12} class="hidden group-open:inline" />
+          Browserbase
+          {#if browserbaseApiKey}
+            <Check size={10} class="text-(--chat-success)" />
+          {/if}
+        </summary>
+        <div class="mt-2 space-y-2 pl-0.5">
+          {@render passwordField("API Key", browserbaseApiKey, (v) => { browserbaseApiKey = v; updateWebSettings({ browserbaseApiKey }); }, "bb_live_...")}
+          <p class="text-[10px] text-(--chat-text-muted)">
+            Get an API key at <a href="https://www.browserbase.com/settings" target="_blank" class="underline hover:text-(--chat-text-secondary)">browserbase.com/settings</a>
+          </p>
+          {#if browserbaseApiKey && browserUseApiKey}
+            <p class="text-[10px] text-(--chat-text-muted) italic">
+              Both providers configured — Browserbase will be used.
+            </p>
+          {/if}
+        </div>
+      </details>
+    {/if}
   </div>
 
+  <!-- ═══ AGENT SKILLS ═══ -->
   <div class="border-t border-(--chat-border) pt-4">
     <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted) mb-4">
       agent skills
@@ -941,6 +1112,7 @@
     />
   </div>
 
+  <!-- ═══ ABOUT ═══ -->
   <div class="border-t border-(--chat-border) pt-4">
     <div class="text-[10px] uppercase tracking-widest text-(--chat-text-muted) mb-2">
       about
@@ -949,16 +1121,10 @@
       {adapter.appName || "This app"} uses your own API key to connect to LLM
       providers. Your key is stored locally in the browser.
     </p>
-    {#if isCustom}
-      <p class="text-xs text-(--chat-text-muted) leading-relaxed mt-2">
-        Custom Endpoint: Point to any OpenAI-compatible API (Ollama, vLLM,
-        LMStudio) or other supported API types.
-      </p>
-    {/if}
     {#if useProxy}
       <p class="text-xs text-(--chat-text-muted) leading-relaxed mt-2">
         CORS Proxy: Requests route through your proxy to bypass browser CORS
-        restrictions. Required for Claude OAuth and some providers.
+        restrictions.
       </p>
     {/if}
     <p class="text-[10px] text-(--chat-text-muted) mt-3">
@@ -966,3 +1132,5 @@
     </p>
   </div>
 </div>
+
+

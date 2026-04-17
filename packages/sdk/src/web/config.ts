@@ -9,6 +9,11 @@ export interface WebConfig {
     browserUse?: string;
     browserbase?: string;
   };
+  enabled: {
+    webSearch: boolean;
+    webFetch: boolean;
+    browse: boolean;
+  };
 }
 
 import { getNamespace } from "../storage/namespace";
@@ -22,6 +27,11 @@ const DEFAULT_WEB_CONFIG: WebConfig = {
   imageSearchProvider: "serper",
   fetchProvider: "basic",
   apiKeys: {},
+  enabled: {
+    webSearch: true,
+    webFetch: true,
+    browse: true,
+  },
 };
 
 export function loadWebConfig(): WebConfig {
@@ -39,6 +49,10 @@ export function loadWebConfig(): WebConfig {
         ...DEFAULT_WEB_CONFIG.apiKeys,
         ...(parsed.apiKeys || {}),
       },
+      enabled: {
+        ...DEFAULT_WEB_CONFIG.enabled,
+        ...(parsed.enabled || {}),
+      },
     };
   } catch {
     return { ...DEFAULT_WEB_CONFIG };
@@ -55,6 +69,10 @@ export function saveWebConfig(config: Partial<WebConfig>) {
     apiKeys: {
       ...current.apiKeys,
       ...(config.apiKeys || {}),
+    },
+    enabled: {
+      ...current.enabled,
+      ...(config.enabled || {}),
     },
   };
   localStorage.setItem(webConfigKey(), JSON.stringify(next));

@@ -2,6 +2,7 @@ export {
   Browser,
   type BrowserDependencies,
   type BrowserOptions,
+  type BrowserPreviewState,
   type BrowserTab,
   type ConnectOptions,
 } from "./browser.js";
@@ -13,25 +14,28 @@ export {
   CdpSession,
 } from "./cdp.js";
 export {
+  BrowseCli,
   type BrowseCommandConfig,
+  type BrowsePreviewEvent,
   type BrowseSessionEvent,
-  closeActiveBrowser,
-  configureBrowseCommand,
-  disposeBrowseCommand,
-  executeBrowseCommand,
-  getActiveBrowser,
-  getBrowseSessionState,
-  onBrowseSessionChange,
 } from "./command.js";
 export {
+  htmlFragmentToMarkdown,
+  htmlToMarkdown,
+  type MarkdownContentResult,
+} from "./markdown.js";
+export {
+  type BoxResult,
   type ClickResult,
   type CookieInput,
+  type MarkdownResult,
   type NavigateResult,
   Page,
   type PageInfo,
   type PdfResult,
   type ScreenshotResult,
   type TypeResult,
+  type UploadedFile,
 } from "./page.js";
 export {
   type BrowserbaseConfig,

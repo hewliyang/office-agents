@@ -215,9 +215,9 @@ const fixtureRoutes: Record<string, (res: http.ServerResponse) => void> = {
 <body>
   <h1>Form Page</h1>
   <form id="form">
-    <label>Email <input id="email" type="email" value="" /></label>
+    <label>Email <input id="email" data-testid="email-input" type="email" value="" placeholder="Email address" /></label>
     <label>Password <input id="password" type="password" value="" /></label>
-    <label>Bio <textarea id="bio"></textarea></label>
+    <label>Bio <textarea id="bio" placeholder="Tell us more"></textarea></label>
     <label>
       Color
       <select id="color">
@@ -229,7 +229,8 @@ const fixtureRoutes: Record<string, (res: http.ServerResponse) => void> = {
     <label><input id="agree" type="checkbox" /> I agree</label>
     <label><input name="plan" type="radio" value="free" checked /> Free</label>
     <label><input name="plan" type="radio" value="pro" /> Pro</label>
-    <button id="submit-form" type="button">Submit</button>
+    <button id="submit-form" data-testid="submit-form" type="button" title="Submit form">Submit</button>
+    <img id="logo" alt="Company logo" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
     <div id="form-output"></div>
   </form>
   <script>
@@ -277,6 +278,11 @@ const fixtureRoutes: Record<string, (res: http.ServerResponse) => void> = {
   <div id="bottom" style="position:absolute;top:4900px">Bottom of page</div>
   <div id="hover-target" style="padding:20px;background:#eee">Hover me</div>
   <div id="hover-output"></div>
+  <div id="scroll-container" style="margin-top:40px;width:220px;height:120px;overflow:auto;border:1px solid #999">
+    <div style="height:600px;position:relative">
+      <button id="scroll-button" style="position:absolute;top:520px">Scroll target</button>
+    </div>
+  </div>
   <script>
     document.querySelector("#hover-target").addEventListener("mouseenter", () => {
       document.querySelector("#hover-output").textContent = "hovered";
@@ -324,6 +330,51 @@ const fixtureRoutes: Record<string, (res: http.ServerResponse) => void> = {
   <script>
     localStorage.setItem("existing-key", "existing-value");
     sessionStorage.setItem("session-key", "session-value");
+  </script>
+</body>
+</html>`,
+    ),
+
+  "/drag": (res) =>
+    html(
+      res,
+      `<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>Drag Test</title></head>
+<body>
+  <div id="drag-source" draggable="true" style="width:80px;height:40px;background:#ddd">Drag me</div>
+  <div id="drag-target" style="margin-top:40px;width:180px;height:100px;border:2px dashed #999">Drop here</div>
+  <div id="drag-output"></div>
+  <script>
+    const source = document.querySelector("#drag-source");
+    const target = document.querySelector("#drag-target");
+    source.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", "dragged");
+    });
+    target.addEventListener("dragover", (event) => event.preventDefault());
+    target.addEventListener("drop", (event) => {
+      event.preventDefault();
+      document.querySelector("#drag-output").textContent = event.dataTransfer.getData("text/plain") || "dropped";
+    });
+  </script>
+</body>
+</html>`,
+    ),
+
+  "/upload": (res) =>
+    html(
+      res,
+      `<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>Upload Test</title></head>
+<body>
+  <input id="file-input" type="file" multiple />
+  <div id="file-output"></div>
+  <script>
+    document.querySelector("#file-input").addEventListener("change", (event) => {
+      const files = Array.from(event.target.files || []).map((file) => file.name).join(",");
+      document.querySelector("#file-output").textContent = files;
+    });
   </script>
 </body>
 </html>`,

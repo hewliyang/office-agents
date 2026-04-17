@@ -1,12 +1,11 @@
+import type { BrowserProvider } from "@office-agents/browser";
 import {
   BrowserbaseProvider,
   BrowserUseProvider,
-  configureBrowseCommand,
-  executeBrowseCommand,
 } from "@office-agents/browser";
-import type { BrowserProvider } from "@office-agents/browser";
 import type { CustomCommand } from "just-bash/browser";
 import { defineCommand } from "just-bash/browser";
+import { configureGlobalBrowseCli } from "../browse-manager";
 import { loadPdfDocument } from "../pdf";
 import { loadSavedConfig } from "../provider-config";
 import { loadWebConfig } from "../web/config";
@@ -385,7 +384,15 @@ const xlsxToCsv: DescribedCommand = {
 const webSearchCmd: DescribedCommand = {
   promptSnippet:
     "- web-search <query> [--max=N] [--region=REGION] [--time=d|w|m|y] [--page=N] [--json] — Search the web. Returns title, URL, and snippet for each result.",
+  isAvailable: () => loadWebConfig().enabled.webSearch,
   command: defineCommand("web-search", async (args) => {
+    if (!loadWebConfig().enabled.webSearch) {
+      return {
+        stdout: "",
+        stderr: "web-search is disabled. Enable it in Settings > Web Tools.",
+        exitCode: 1,
+      };
+    }
     const { flags, positional } = parseFlags(args);
     const query = positional.join(" ");
 
@@ -446,7 +453,15 @@ const webSearchCmd: DescribedCommand = {
 const webFetchCmd: DescribedCommand = {
   promptSnippet:
     "- web-fetch <url> <outfile> — Fetch a web page and extract its readable content to a file. Use head/grep/tail to read selectively.",
+  isAvailable: () => loadWebConfig().enabled.webFetch,
   command: defineCommand("web-fetch", async (args, ctx) => {
+    if (!loadWebConfig().enabled.webFetch) {
+      return {
+        stdout: "",
+        stderr: "web-fetch is disabled. Enable it in Settings > Web Tools.",
+        exitCode: 1,
+      };
+    }
     const url = args[0];
     const outFile = args[1];
 
@@ -601,17 +616,19 @@ function getBrowserProvider(): BrowserProvider | null {
 
 const browseCmd: DescribedCommand = {
   promptSnippet:
-    "- browse — Cloud browser. Run `browse --help` first to see all commands.",
-  isAvailable: () => getBrowserProvider() !== null,
+    "- browse — Cloud browser. Run `browse --help` first. Chain multiple browse commands in one bash call when possible, e.g. `browse open example.com && browse snapshot`.",
+  isAvailable: () =>
+    loadWebConfig().enabled.browse && getBrowserProvider() !== null,
   command: defineCommand("browse", async (args, ctx) => {
-    configureBrowseCommand({
+    const cli = configureGlobalBrowseCli({
       getProvider: () => getBrowserProvider(),
+      readFile: ctx ? (path) => resolveVfsPath(ctx, path) : undefined,
       writeFile: ctx
         ? (path, data) => writeVfsOutput(ctx, path, data).then(() => {})
         : undefined,
     });
 
-    return executeBrowseCommand(args);
+    return cli.executeCommand(args);
   }),
 };
 

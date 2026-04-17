@@ -34,6 +34,7 @@ interface FakeBrowserDeps {
   releasedSessions: Array<{ sessionId: string; reason: string }>;
   activatedTargetIds: string[];
   createdTargetUrls: string[];
+  emit: (method: string, params: Record<string, unknown>) => void;
   isClosed: () => boolean;
 }
 
@@ -64,8 +65,21 @@ function createProvider(session?: Partial<BrowserSession>): FakeProvider {
   };
 }
 
-function createFakePage(targetId: string, sessionId?: string): Page {
-  return { targetId, sessionId } as Page;
+function createFakePage(
+  targetId: string,
+  sessionId?: string,
+  info?: { url?: string; title?: string },
+): Page {
+  return {
+    targetId,
+    sessionId,
+    async getInfo() {
+      return {
+        url: info?.url ?? "",
+        title: info?.title ?? "",
+      };
+    },
+  } as Page;
 }
 
 function createDeps(options: {
@@ -88,9 +102,13 @@ function createDeps(options: {
       return match ? Math.max(max, Number.parseInt(match[1], 10)) : max;
     }, 0) + 1;
 
+  const eventHandlers = new Map<string, Set<(params: unknown) => void>>();
+
   const cdp = {
     async send(method: string, params?: Record<string, unknown>) {
       switch (method) {
+        case "Target.setDiscoverTargets":
+          return {};
         case "Target.getTargets":
           return { targetInfos: [...targets] };
         case "Target.createTarget": {
@@ -126,6 +144,14 @@ function createDeps(options: {
         default:
           throw new Error(`Unexpected CDP method: ${method}`);
       }
+    },
+    on(method: string, handler: (params: unknown) => void) {
+      const handlers = eventHandlers.get(method) ?? new Set();
+      handlers.add(handler);
+      eventHandlers.set(method, handlers);
+    },
+    off(method: string, handler: (params: unknown) => void) {
+      eventHandlers.get(method)?.delete(handler);
     },
     releaseSession(sessionId: string, reason: string) {
       releasedSessions.push({ sessionId, reason });
@@ -169,6 +195,11 @@ function createDeps(options: {
     releasedSessions,
     activatedTargetIds,
     createdTargetUrls,
+    emit(method, params) {
+      for (const handler of eventHandlers.get(method) ?? []) {
+        handler(params);
+      }
+    },
     isClosed: () => closed,
   };
 }
@@ -275,9 +306,15 @@ describe("Browser", () => {
           title: "Old",
         },
       ],
-      firstPage: createFakePage("page-1", "old-session"),
+      firstPage: createFakePage("page-1", "old-session", {
+        url: "https://example.com/old",
+        title: "Old",
+      }),
       pagesByTargetId: {
-        "page-2": createFakePage("page-2", "new-session"),
+        "page-2": createFakePage("page-2", "new-session", {
+          url: "https://example.com/new",
+          title: "example.com",
+        }),
       },
     });
 
@@ -317,9 +354,15 @@ describe("Browser", () => {
           title: "Only",
         },
       ],
-      firstPage: createFakePage("page-1", "old-session"),
+      firstPage: createFakePage("page-1", "old-session", {
+        url: "https://example.com/only",
+        title: "Only",
+      }),
       pagesByTargetId: {
-        "page-2": createFakePage("page-2", "new-session"),
+        "page-2": createFakePage("page-2", "new-session", {
+          url: "about:blank",
+          title: "",
+        }),
       },
     });
 
@@ -360,5 +403,62 @@ describe("Browser", () => {
     });
 
     await expect(browser.switchTab(3)).rejects.toThrow("No tab at index 3");
+  });
+
+  it("auto-follows newly created page targets", async () => {
+    const browserDeps = createDeps({
+      targets: [
+        {
+          targetId: "page-1",
+          type: "page",
+          url: "https://example.com/a",
+          title: "A",
+        },
+      ],
+      firstPage: createFakePage("page-1", "page-1-session", {
+        url: "https://example.com/a",
+        title: "A",
+      }),
+      pagesByTargetId: {
+        "page-2": createFakePage("page-2", "page-2-session", {
+          url: "https://example.com/new",
+          title: "New",
+        }),
+      },
+    });
+
+    const browser = await Browser.connect({
+      cdpUrl: "wss://cdp.example/session",
+      deps: browserDeps.deps,
+    });
+
+    browserDeps.emit("Target.targetCreated", {
+      targetInfo: {
+        targetId: "page-2",
+        type: "page",
+        url: "https://example.com/new",
+        title: "New",
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await expect(browser.listTabs()).resolves.toEqual([
+      {
+        index: 0,
+        targetId: "page-1",
+        url: "https://example.com/a",
+        title: "A",
+        active: false,
+      },
+      {
+        index: 1,
+        targetId: "page-2",
+        url: "https://example.com/new",
+        title: "New",
+        active: true,
+      },
+    ]);
+    expect(browserDeps.attachedTargetIds).toContain("page-2");
   });
 });

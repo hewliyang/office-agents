@@ -1,5 +1,4 @@
-import { Readability } from "@mozilla/readability";
-import TurndownService from "turndown";
+import { htmlToMarkdown } from "@office-agents/browser";
 import type { FetchProvider, FetchResult, WebContext } from "./types";
 
 function isHtmlContentType(contentType: string): boolean {
@@ -49,41 +48,13 @@ async function fetchWithProxy(
 }
 
 function extractContentFromHtml(url: string, html: string): FetchResult {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const base = doc.createElement("base");
-  base.href = url;
-  doc.head.prepend(base);
-
-  const reader = new Readability(doc);
-  const article = reader.parse();
-
-  const td = new TurndownService({
-    headingStyle: "atx",
-    codeBlockStyle: "fenced",
-    bulletListMarker: "-",
-  });
-  td.remove(["script", "style", "footer"]);
-
-  let title: string;
-  let content: string;
-  const metadata: Record<string, string> = { URL: url };
-
-  if (article) {
-    title = article.title;
-    if (article.byline) metadata.Author = article.byline;
-    if (article.siteName) metadata.Site = article.siteName;
-    content = td.turndown(article.content).trim();
-  } else {
-    title = doc.querySelector("title")?.textContent ?? url;
-    content = td.turndown(doc.body?.innerHTML ?? "").trim();
-  }
-
+  const result = htmlToMarkdown(url, html);
   return {
     kind: "text",
     contentType: "text/markdown",
-    text: content,
-    title,
-    metadata,
+    text: result.text,
+    title: result.title,
+    metadata: result.metadata,
   };
 }
 

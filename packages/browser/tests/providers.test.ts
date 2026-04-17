@@ -1,8 +1,8 @@
 import { once } from "node:events";
 import http from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { BrowserbaseProvider } from "../src/providers/browserbase.js";
 import { BrowserUseProvider } from "../src/providers/browser-use.js";
+import { BrowserbaseProvider } from "../src/providers/browserbase.js";
 
 interface CapturedRequest {
   method: string;

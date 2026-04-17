@@ -35,6 +35,12 @@
     "test:integration": "vitest run tests/integration.test.ts tests/integration/",
     "test:install-browsers": "playwright install chromium"
   },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@types/turndown": "^5.0.6",
+    "linkedom": "^0.18.12",
+    "turndown": "^7.2.2"
+  },
   "devDependencies": {
     "devtools-protocol": "^0.0.1602427",
     "playwright": "1.57.0",

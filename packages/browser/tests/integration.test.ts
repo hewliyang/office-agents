@@ -118,6 +118,19 @@ suite("integration", () => {
       expect(html).toContain("<h1>Interactive Test</h1>");
     });
 
+    it("converts the page to markdown", async () => {
+      const markdown = await browser.page.getMarkdown();
+      expect(markdown.title).toBe("Interactive Test");
+      expect(markdown.text).toContain("Go next");
+      expect(markdown.metadata.URL).toContain("/interactive");
+    });
+
+    it("converts a selector fragment to markdown", async () => {
+      const markdown = await browser.page.getMarkdown("main");
+      expect(markdown.text).toContain("Interactive Test");
+      expect(markdown.metadata.Scope).toBe("main");
+    });
+
     it("gets input value", async () => {
       await browser.page.focus("#name");
       await browser.page.type("test-value");
@@ -128,6 +141,18 @@ suite("integration", () => {
       expect(await browser.page.getAttribute("#nav", "href")).toBe(
         "/destination",
       );
+    });
+
+    it("gets an element bounding box", async () => {
+      const box = await browser.page.getBox("#nav");
+      expect(box).toBeTruthy();
+      expect(box!.width).toBeGreaterThan(0);
+      expect(box!.height).toBeGreaterThan(0);
+    });
+
+    it("gets computed styles", async () => {
+      const styles = await browser.page.getStyles("#nav");
+      expect(styles.display).toBeTruthy();
     });
 
     it("returns null for missing attribute", async () => {
@@ -206,6 +231,11 @@ suite("integration", () => {
       expect(await browser.page.getValue("#name")).toBe("hello");
     });
 
+    it("types text into a selector directly", async () => {
+      await browser.page.typeInto("#name", "typed-into");
+      expect(await browser.page.getValue("#name")).toBe("typed-into");
+    });
+
     it("clicks an element by selector", async () => {
       await browser.page.clickSelector("#increment");
       expect(await browser.page.getText("#count")).toBe("1");
@@ -265,6 +295,12 @@ suite("integration", () => {
       await browser.page.fill("#name", "new value", { pressEnter: false });
       const value = await browser.page.getValue("#name");
       expect(value).toContain("new value");
+    });
+
+    it("inserts text without key events", async () => {
+      await browser.page.focus("#name");
+      await browser.page.insertText("inserted");
+      expect(await browser.page.getValue("#name")).toContain("inserted");
     });
   });
 
@@ -329,6 +365,29 @@ suite("integration", () => {
       await browser.page.waitForTimeout(100);
       const after = (await browser.page.evaluate("window.scrollY")) as number;
       expect(after).toBeGreaterThan(before);
+    });
+
+    it("scrolls directionally inside an element", async () => {
+      const before = (await browser.page.evaluate(
+        `document.querySelector("#scroll-container").scrollTop`,
+      )) as number;
+      await browser.page.scrollDirection("down", 300, "#scroll-container");
+      const after = (await browser.page.evaluate(
+        `document.querySelector("#scroll-container").scrollTop`,
+      )) as number;
+      expect(after).toBeGreaterThan(before);
+    });
+
+    it("scrolls an element into view", async () => {
+      await browser.page.scrollIntoView("#scroll-button");
+      const visible = (await browser.page.evaluate(`(() => {
+        const container = document.querySelector("#scroll-container");
+        const button = document.querySelector("#scroll-button");
+        const cr = container.getBoundingClientRect();
+        const br = button.getBoundingClientRect();
+        return br.top >= cr.top && br.bottom <= cr.bottom;
+      })()`)) as boolean;
+      expect(visible).toBe(true);
     });
   });
 
@@ -513,6 +572,81 @@ suite("integration", () => {
   // ---------------------------------------------------------------------------
   // Emulation
   // ---------------------------------------------------------------------------
+
+  describe("advanced parity", () => {
+    it("finds elements by semantic locators", async () => {
+      await browser.page.goto(`${fixture.baseUrl}/form`);
+      await browser.page.performFindAction(
+        { kind: "label", value: "Email" },
+        "fill",
+        "person@example.com",
+      );
+      expect(await browser.page.getValue("#email")).toBe("person@example.com");
+
+      const text = await browser.page.performFindAction(
+        { kind: "role", value: "button", name: "Submit", exact: true },
+        "text",
+      );
+      expect(text).toBe("Submit");
+
+      const titleText = await browser.page.performFindAction(
+        { kind: "title", value: "Submit form", exact: true },
+        "text",
+      );
+      expect(titleText).toBe("Submit");
+
+      await browser.page.performFindAction(
+        { kind: "testid", value: "email-input", exact: true },
+        "focus",
+      );
+      expect(await browser.page.evaluate("document.activeElement?.id")).toBe(
+        "email",
+      );
+
+      await browser.page.performFindAction(
+        { kind: "placeholder", value: "Tell us more", exact: true },
+        "fill",
+        "More details",
+      );
+      expect(await browser.page.getValue("#bio")).toBe("More details");
+    });
+
+    it("uploads files by injecting File objects", async () => {
+      await browser.page.goto(`${fixture.baseUrl}/upload`);
+      await browser.page.uploadFiles("#file-input", [
+        {
+          name: "alpha.txt",
+          type: "text/plain",
+          base64: Buffer.from("alpha", "utf8").toString("base64"),
+        },
+        {
+          name: "beta.txt",
+          type: "text/plain",
+          base64: Buffer.from("beta", "utf8").toString("base64"),
+        },
+      ]);
+      expect(await browser.page.getText("#file-output")).toBe(
+        "alpha.txt,beta.txt",
+      );
+    });
+
+    it("drags and drops between elements", async () => {
+      await browser.page.goto(`${fixture.baseUrl}/drag`);
+      await browser.page.dragAndDrop("#drag-source", "#drag-target");
+      expect(await browser.page.getText("#drag-output")).toMatch(
+        /dragged|dropped/,
+      );
+    });
+
+    it("emulates supported devices", async () => {
+      await browser.page.goto(`${fixture.baseUrl}/interactive`);
+      await browser.page.setDevice("iPhone 15");
+      const userAgent = (await browser.page.evaluate(
+        "navigator.userAgent",
+      )) as string;
+      expect(userAgent).toContain("iPhone");
+    });
+  });
 
   describe("emulation", () => {
     beforeAll(async () => {
