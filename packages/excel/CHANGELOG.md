@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-04-17
+
 ### Changed
 
 - **Co-located command prompt snippets** — Excel-specific VFS commands (`csv-to-sheet`, `sheet-to-csv`, `image-to-sheet`) now use `DescribedCommand` with co-located `promptSnippet`. System prompt assembles command docs dynamically from snippets instead of hard-coding them.
+- **Upgrade `pi-ai` / `pi-agent-core`** — Bumped to `^0.67.6` for the latest provider, streaming, and agent runtime improvements.
 
 ## [0.2.8] - 2026-03-19
 

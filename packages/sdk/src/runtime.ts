@@ -619,7 +619,7 @@ export class AgentRuntime {
       this.currentSessionId = session.id;
 
       if (session.agentMessages.length > 0 && this.agent) {
-        this.agent.replaceMessages(session.agentMessages);
+        this.agent.state.messages = session.agentMessages;
       }
 
       const uploadNames = await this.context.listUploads();
@@ -658,7 +658,7 @@ export class AgentRuntime {
     await this.context.restoreVfs(vfsFiles);
 
     if (session.agentMessages.length > 0 && this.agent) {
-      this.agent.replaceMessages(session.agentMessages);
+      this.agent.state.messages = session.agentMessages;
     }
 
     await this.refreshSessions();
@@ -737,7 +737,7 @@ export class AgentRuntime {
       }
 
       if (session.agentMessages.length > 0 && this.agent) {
-        this.agent.replaceMessages(session.agentMessages);
+        this.agent.state.messages = session.agentMessages;
       }
 
       const uploadNames = await this.context.listUploads();

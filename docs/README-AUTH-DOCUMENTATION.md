@@ -1,4 +1,4 @@
-# Excel Mate Authentication Flow - Complete Documentation Package
+# OpenExcel Authentication Flow - Complete Documentation Package
 
 **Date:** April 20, 2026  
 **Status:** Complete & Ready for Implementation  
@@ -8,7 +8,7 @@
 
 ## 📋 Documentation Package Overview
 
-This package contains a comprehensive blueprint of the Excel Mate authentication flow, designed to facilitate replication of the proven auth pattern in a new Static Web App (SWA). The documentation is organized into four primary deliverables plus this summary document.
+This package contains a comprehensive blueprint of the OpenExcel authentication flow, designed to facilitate replication of the proven auth pattern in a new Static Web App (SWA). The documentation is organized into four primary deliverables plus this summary document.
 
 ### Included Deliverables
 
@@ -43,7 +43,7 @@ This package contains a comprehensive blueprint of the Excel Mate authentication
 
 ## 🎯 Key Findings Summary
 
-### Current Implementation (Excel Mate)
+### Current Implementation (OpenExcel)
 
 **Authentication Method:** OAuth 2.0 with PKCE  
 **Supported Providers:** Anthropic Claude, OpenAI ChatGPT  
@@ -219,7 +219,7 @@ staticwebapp.config.json       (SWA routing & auth config)
 
 ## 🔍 Key Files in Original Codebase
 
-For reference, the current Excel Mate implementation uses:
+For reference, the current OpenExcel implementation uses:
 
 | File | Purpose |
 |------|---------|

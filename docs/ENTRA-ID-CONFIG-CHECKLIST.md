@@ -1,6 +1,6 @@
 # Azure AD / Entra ID Configuration Checklist & Implementation Guide
 
-**Document Purpose:** This guide provides step-by-step instructions for configuring Azure Active Directory (Entra ID) OAuth for a Static Web App (SWA) to replicate the Excel Mate authentication pattern.
+**Document Purpose:** This guide provides step-by-step instructions for configuring Azure Active Directory (Entra ID) OAuth for a Static Web App (SWA) to replicate the OpenExcel authentication pattern.
 
 **Pre-Requisites:**
 - Azure subscription with Entra ID tenant
@@ -16,7 +16,7 @@
 1. Navigate to **Azure Portal** → **Entra ID** → **App registrations**
 2. Click **New registration**
 3. Fill in details:
-   - **Name:** `Excel Mate SWA` (or your application name)
+   - **Name:** `OpenExcel SWA` (or your application name)
    - **Supported account types:** Choose based on your needs:
      - ✅ **Accounts in this organizational directory only** — Single-tenant (recommended for enterprise)
      - ⭕ **Accounts in any organizational directory** — Multi-tenant (for broader access)
@@ -133,17 +133,17 @@ VITE_AZURE_AD_TENANT_ID={Directory (tenant) ID}
 3. Define roles for your application:
 
 **Role 1: User**
-- **Display name:** `Excel Mate User`
+- **Display name:** `OpenExcel User`
 - **Allowed member types:** Users/Groups
 - **Value:** `Excel.User`
-- **Description:** `Basic user access to Excel Mate`
+- **Description:** `Basic user access to OpenExcel`
 - Click **Create**
 
 **Role 2: Admin** (optional)
-- **Display name:** `Excel Mate Admin`
+- **Display name:** `OpenExcel Admin`
 - **Allowed member types:** Users/Groups
 - **Value:** `Excel.Admin`
-- **Description:** `Administrative access to Excel Mate`
+- **Description:** `Administrative access to OpenExcel`
 - Click **Create**
 
 ### Step 10: Assign Users to App Roles
@@ -165,8 +165,8 @@ VITE_AZURE_AD_TENANT_ID={Directory (tenant) ID}
 1. Navigate to **Azure API Management** service
 2. Go to **APIs** → **Add API**
 3. Define API:
-   - **Name:** `Excel Mate API`
-   - **Display name:** `Excel Mate API`
+   - **Name:** `OpenExcel API`
+   - **Display name:** `OpenExcel API`
    - **Base URL:** `https://{your-backend-function-app}.azurewebsites.net`
 
 ### Step 12: Add TOKEN VALIDATION Policy to APIM (Optional)

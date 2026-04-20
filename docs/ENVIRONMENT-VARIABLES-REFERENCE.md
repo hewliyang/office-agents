@@ -1,6 +1,6 @@
 # Environment Variables & Quick Reference Guide
 
-**Purpose:** Comprehensive reference for all environment variables and code snippets needed to implement the Excel Mate authentication pattern in a new Static Web App.
+**Purpose:** Comprehensive reference for all environment variables and code snippets needed to implement the OpenExcel authentication pattern in a new Static Web App.
 
 ---
 

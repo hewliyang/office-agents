@@ -1,4 +1,4 @@
-# Excel Mate Authentication Flow Documentation
+# OpenExcel Authentication Flow Documentation
 
 **Version:** 1.0  
 **Last Updated:** April 20, 2026  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The **Excel Mate** application implements a **client-side OAuth 2.0 authentication flow with PKCE (Proof Key for Code Exchange)** to securely obtain and manage access tokens for LLM providers. The architecture follows a **BYOK (Bring Your Own Key)** model where users authenticate directly with their chosen OAuth provider (Anthropic Claude, OpenAI ChatGPT) and the application manages token lifecycle entirely on the client-side.
+The **OpenExcel** application implements a **client-side OAuth 2.0 authentication flow with PKCE (Proof Key for Code Exchange)** to securely obtain and manage access tokens for LLM providers. The architecture follows a **BYOK (Bring Your Own Key)** model where users authenticate directly with their chosen OAuth provider (Anthropic Claude, OpenAI ChatGPT) and the application manages token lifecycle entirely on the client-side.
 
 ### Key Characteristics
 - **Protocol:** OAuth 2.0 with PKCE (public client, browser-based)
@@ -107,7 +107,7 @@ The **Excel Mate** application implements a **client-side OAuth 2.0 authenticati
 
 **User Actions:**
 1. User logs into their provider account (if not already authenticated)
-2. Grants permission to Excel Mate application
+2. Grants permission to OpenExcel application
 3. Provider redirects back with authorization code + state
 
 **Security Checks:**

@@ -1,28 +1,28 @@
 # OpenPoint Deployment Research: Deep Dive Analysis
 
 **Date:** 2026-04-01  
-**Purpose:** Analyze reuse opportunities from ExcelMate and upstream office-agents for OpenPoint deployment  
-**Audience:** Development team (OpenAI/ExcelMate developers)
+**Purpose:** Analyze reuse opportunities from OpenExcel and upstream office-agents for OpenPoint deployment  
+**Audience:** Development team (OpenAI/OpenExcel developers)
 
 ---
 
 ## Executive Summary
 
 This document analyzes the feasibility of deploying OpenPoint (PowerPoint AI agent) by reusing infrastructure from:
-1. **ExcelMate** (our existing Excel add-in at `C:\Users\jbay\Github\open-powerpoint\ExcelMate\`)
+1. **OpenExcel** (our existing Excel add-in at `C:\Users\jbay\Github\open-powerpoint\OpenExcel\`)
 2. **upstream office-agents** (hewliyang's PowerPoint package at https://github.com/hewliyang/office-agents/tree/main/packages/powerpoint)
 
 ### Key Findings
 
 ✅ **HIGH REUSABILITY**: Both use the same underlying framework (`@mariozechner/pi-agent-core` + `pi-ai`)  
 ✅ **MVP READY**: OpenPoint is 70% complete and can deploy today  
-✅ **INFRASTRUCTURE PROVEN**: ExcelMate's deployment pipeline works for PowerPoint with minimal changes  
+✅ **INFRASTRUCTURE PROVEN**: OpenExcel's deployment pipeline works for PowerPoint with minimal changes  
 ⚠️ **FEATURE GAPS**: Upstream has advanced OOXML capabilities (charts, slide masters) we lack  
 ⚠️ **QUICK WINS AVAILABLE**: 3 upstream tools can be ported in 1-2 days without new dependencies
 
 ### Recommended Path Forward
 
-1. **Week 1**: Deploy MVP using existing ExcelMate infrastructure (2-4 hours)
+1. **Week 1**: Deploy MVP using existing OpenExcel infrastructure (2-4 hours)
 2. **Week 2**: Add 3 quick-win tools from upstream (1-2 days)
 3. **Week 3+**: Evaluate OOXML features based on pilot feedback (2-3 days if needed)
 
@@ -30,7 +30,7 @@ This document analyzes the feasibility of deploying OpenPoint (PowerPoint AI age
 
 ## Table of Contents
 
-1. [ExcelMate Architecture Analysis](#1-excelmate-architecture-analysis)
+1. [OpenExcel Architecture Analysis](#1-excelmate-architecture-analysis)
 2. [Upstream office-agents Analysis](#2-upstream-office-agents-analysis)
 3. [Feature Gap Analysis](#3-feature-gap-analysis)
 4. [Reusable Components](#4-reusable-components)
@@ -41,7 +41,7 @@ This document analyzes the feasibility of deploying OpenPoint (PowerPoint AI age
 
 ---
 
-## 1. ExcelMate Architecture Analysis
+## 1. OpenExcel Architecture Analysis
 
 ### 1.1 Deployment Architecture
 
@@ -72,11 +72,11 @@ This document analyzes the feasibility of deploying OpenPoint (PowerPoint AI age
 ```
 
 **Key Files:**
-- [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\package.json`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\package.json) - Build scripts
-- [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\.github\workflows\release.yml`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\.github\workflows\release.yml) - CD pipeline
-- [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\vite.config.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\vite.config.ts) - Build configuration
-- [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.xml`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.xml) - Office add-in manifest (dev)
-- [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.prod.xml`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.prod.xml) - Production manifest
+- [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\package.json`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\package.json) - Build scripts
+- [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\.github\workflows\release.yml`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\.github\workflows\release.yml) - CD pipeline
+- [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\vite.config.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\vite.config.ts) - Build configuration
+- [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.xml`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.xml) - Office add-in manifest (dev)
+- [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.prod.xml`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.prod.xml) - Production manifest
 
 ### 1.2 Technology Stack
 
@@ -116,7 +116,7 @@ idb@^8.0.0                           # IndexedDB wrapper
 
 ### 1.3 Authentication Model: BYOK (Bring Your Own Key)
 
-**Implementation:** [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\provider-config.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\provider-config.ts)
+**Implementation:** [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\provider-config.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\provider-config.ts)
 
 **Supported Methods:**
 1. **API Key Authentication**
@@ -125,7 +125,7 @@ idb@^8.0.0                           # IndexedDB wrapper
    - Providers: OpenAI, Anthropic, Google Gemini, Azure OpenAI, Groq, Mistral, xAI, Cerebras
 
 2. **OAuth (PKCE Flow)**
-   - Implementation: [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\oauth\index.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\oauth\index.ts)
+   - Implementation: [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\oauth\index.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\oauth\index.ts)
    - Providers: Anthropic (Claude Pro/Max), OpenAI Codex
    - Security: S256 code challenge, state validation, refresh token rotation
 
@@ -214,7 +214,7 @@ pnpm dlx wrangler pages deploy dist --project-name openexcel
 
 ### 1.5 Monitoring & Observability
 
-**Implementation:** [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\datadog\index.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\datadog\index.ts)
+**Implementation:** [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\datadog\index.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\datadog\index.ts)
 
 **What Gets Logged:**
 ```typescript
@@ -274,31 +274,31 @@ sessionReplaySampleRate: 2
 
 ### 1.6 PowerPoint Tools (Current Implementation)
 
-**Location:** [`C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\)
+**Location:** [`C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\)
 
 **Read Tools (5):**
-1. [`get-slide-content.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\get-slide-content.ts) - Read shapes, text, positions, formatting
-2. [`search-slides.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\search-slides.ts) - Text search across slides
-3. [`screenshot-slide.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\screenshot-slide.ts) - Visual slide capture (Base64 PNG)
-4. [`get-all-objects.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\get-all-objects.ts) - List all objects/shapes
-5. [`bash.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\bash.ts) - Virtual filesystem commands
+1. [`get-slide-content.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\get-slide-content.ts) - Read shapes, text, positions, formatting
+2. [`search-slides.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\search-slides.ts) - Text search across slides
+3. [`screenshot-slide.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\screenshot-slide.ts) - Visual slide capture (Base64 PNG)
+4. [`get-all-objects.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\get-all-objects.ts) - List all objects/shapes
+5. [`bash.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\bash.ts) - Virtual filesystem commands
 
 **Write Tools (11):**
-1. [`set-slide-content.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\set-slide-content.ts) - Update slide content
-2. [`add-shape.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\add-shape.ts) - Create textbox + geometric shapes
-3. [`add-picture.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\add-picture.ts) - Insert images (Base64)
-4. [`add-line.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\add-line.ts) - Add connectors (Straight/Elbow/Curve)
-5. [`format-text.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\format-text.ts) - Font styling (color, size, bold, italic, underline, family)
-6. [`format-shape-fill.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\format-shape-fill.ts) - Background colors
-7. [`format-shape-line.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\format-shape-line.ts) - Borders (color, width, style)
-8. [`format-paragraph.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\format-paragraph.ts) - Text alignment (left/center/right)
-9. [`group-shapes.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\group-shapes.ts) - Group multiple shapes
-10. [`set-shape-image.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\set-shape-image.ts) - Picture fill (shape background)
-11. [`modify-presentation-structure.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\modify-presentation-structure.ts) - Insert/delete/reorder slides
+1. [`set-slide-content.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\set-slide-content.ts) - Update slide content
+2. [`add-shape.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\add-shape.ts) - Create textbox + geometric shapes
+3. [`add-picture.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\add-picture.ts) - Insert images (Base64)
+4. [`add-line.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\add-line.ts) - Add connectors (Straight/Elbow/Curve)
+5. [`format-text.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\format-text.ts) - Font styling (color, size, bold, italic, underline, family)
+6. [`format-shape-fill.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\format-shape-fill.ts) - Background colors
+7. [`format-shape-line.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\format-shape-line.ts) - Borders (color, width, style)
+8. [`format-paragraph.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\format-paragraph.ts) - Text alignment (left/center/right)
+9. [`group-shapes.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\group-shapes.ts) - Group multiple shapes
+10. [`set-shape-image.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\set-shape-image.ts) - Picture fill (shape background)
+11. [`modify-presentation-structure.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\modify-presentation-structure.ts) - Insert/delete/reorder slides
 
 **Utility Tools (2):**
-1. [`eval-officejs.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\eval-officejs.ts) - Raw Office.js execution (sandboxed)
-2. [`read-file.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\tools\read-file.ts) - Virtual filesystem access
+1. [`eval-officejs.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\eval-officejs.ts) - Raw Office.js execution (sandboxed)
+2. [`read-file.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\tools\read-file.ts) - Virtual filesystem access
 
 **Tool Pattern (Declarative, Type-Safe):**
 ```typescript
@@ -657,7 +657,7 @@ verify_slides()
 ### 3.1 What We Have That Upstream Doesn't
 
 ✅ **Datadog Monitoring** - Full RUM + logs with privacy controls  
-✅ **React UI** - Familiar stack for GN developers  
+✅ **React UI** - Familiar stack for Contoso developers  
 ✅ **Declarative Tools** - Type-safe, reviewable  
 ✅ **More Granular Tools** - 30 tools vs 11 (better UX for simple operations)  
 ✅ **Virtual Filesystem** - Already implemented in bash tool  
@@ -721,7 +721,7 @@ verify_slides()
 
 ### 3.3 Feature Matrix
 
-| Feature | ExcelMate (Ours) | Upstream | Priority | Effort |
+| Feature | OpenExcel (Ours) | Upstream | Priority | Effort |
 |---------|-----------------|----------|----------|--------|
 | **Read slides** | ✅ get_slide_content | ✅ read_slide_text | - | - |
 | **Write text** | ✅ format_text (declarative) | ✅ execute_office_js (code) | - | - |
@@ -746,30 +746,30 @@ verify_slides()
 
 ## 4. Reusable Components
 
-### 4.1 From ExcelMate → OpenPoint (100% Reusable)
+### 4.1 From OpenExcel → OpenPoint (100% Reusable)
 
 **Infrastructure (No Changes Needed):**
-1. ✅ **Build System** - [`vite.config.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\vite.config.ts)
-2. ✅ **CI/CD Pipeline** - [`.github/workflows/`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\.github\workflows/)
-3. ✅ **Datadog Integration** - [`src/lib/datadog/`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\datadog/)
-4. ✅ **OAuth/Auth** - [`src/lib/oauth/`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\oauth/) + [`src/lib/provider-config.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\provider-config.ts)
-5. ✅ **Storage** - [`src/lib/storage.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\storage.ts) (IndexedDB)
-6. ✅ **Skills System** - [`src/lib/skills.ts`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\skills.ts)
-7. ✅ **Virtual Filesystem** - [`src/lib/vfs/`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\lib\vfs/)
-8. ✅ **React UI Components** - [`src/taskpane/components/`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\taskpane\components/)
+1. ✅ **Build System** - [`vite.config.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\vite.config.ts)
+2. ✅ **CI/CD Pipeline** - [`.github/workflows/`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\.github\workflows/)
+3. ✅ **Datadog Integration** - [`src/lib/datadog/`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\datadog/)
+4. ✅ **OAuth/Auth** - [`src/lib/oauth/`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\oauth/) + [`src/lib/provider-config.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\provider-config.ts)
+5. ✅ **Storage** - [`src/lib/storage.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\storage.ts) (IndexedDB)
+6. ✅ **Skills System** - [`src/lib/skills.ts`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\skills.ts)
+7. ✅ **Virtual Filesystem** - [`src/lib/vfs/`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\lib\vfs/)
+8. ✅ **React UI Components** - [`src/taskpane/components/`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\taskpane\components/)
 
 **What Needs Minimal Changes:**
 1. ⚠️ **Manifests** - Update host from "Workbook" → "Presentation"
-   - [`manifest.xml`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.xml) - Change `<Host Name="Workbook"/>` → `<Host Name="Presentation"/>`
-   - [`manifest.prod.xml`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\manifest.prod.xml) - Same change
+   - [`manifest.xml`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.xml) - Change `<Host Name="Workbook"/>` → `<Host Name="Presentation"/>`
+   - [`manifest.prod.xml`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\manifest.prod.xml) - Same change
    - **Status:** ✅ Already done per memory
 
 2. ⚠️ **System Prompts** - Update "spreadsheet" → "presentation" terminology
-   - [`src/taskpane/components/chat/chat-context.tsx`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\src\taskpane\components\chat\chat-context.tsx) - Line 147-150
+   - [`src/taskpane/components/chat/chat-context.tsx`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\src\taskpane\components\chat\chat-context.tsx) - Line 147-150
    - **Status:** ✅ Already done per memory
 
 3. ⚠️ **Icons** - Update branding assets
-   - [`public/assets/icon-*.png`](C:\Users\jbay\Github\open-powerpoint\ExcelMate\public\assets\) - PowerPoint-themed icons
+   - [`public/assets/icon-*.png`](C:\Users\jbay\Github\open-powerpoint\OpenExcel\public\assets\) - PowerPoint-themed icons
    - **Status:** ⏳ TODO
 
 ### 4.2 From Upstream → OpenPoint (Can Port)
@@ -818,10 +818,10 @@ pnpm add -D @types/jszip
 
 ## 5. Deployment Options
 
-### 5.1 Option A: Cloudflare Pages (Like ExcelMate)
+### 5.1 Option A: Cloudflare Pages (Like OpenExcel)
 
 **Pros:**
-- ✅ Proven: ExcelMate already runs on Cloudflare
+- ✅ Proven: OpenExcel already runs on Cloudflare
 - ✅ Fast deployment: `wrangler pages deploy dist`
 - ✅ Free tier: 500 builds/month, unlimited bandwidth
 - ✅ Global CDN: Sub-100ms latency worldwide
@@ -829,9 +829,9 @@ pnpm add -D @types/jszip
 - ✅ GitHub Actions integration: Auto-deploy on tag
 
 **Cons:**
-- ❌ Not "Azure": Doesn't fit GN's Azure-first strategy
+- ❌ Not "Azure": Doesn't fit Contoso's Azure-first strategy
 - ❌ No Azure AD integration: Can't leverage existing SSO
-- ❌ Separate from ExcelMate: Different deployment if we want to consolidate
+- ❌ Separate from OpenExcel: Different deployment if we want to consolidate
 
 **Deployment:**
 ```bash
@@ -853,10 +853,10 @@ https://openpoint.pages.dev
 ### 5.2 Option B: Azure Static Web Apps
 
 **Pros:**
-- ✅ Azure-native: Fits GN's Azure-first strategy
+- ✅ Azure-native: Fits Contoso's Azure-first strategy
 - ✅ Free tier: 100 GB bandwidth/month
 - ✅ Azure AD integration: Can add SSO later
-- ✅ Consolidated: Can be on same domain as other GN apps
+- ✅ Consolidated: Can be on same domain as other Contoso apps
 - ✅ Azure DevOps: Can integrate with existing pipelines
 
 **Cons:**
@@ -890,9 +890,9 @@ https://openpoint-<hash>.azurestaticapps.net
 
 **For Production:**
 - **Use Azure Static Web Apps** (Option B)
-- Reason: Azure-native, fits GN strategy
+- Reason: Azure-native, fits Contoso strategy
 - Can add Azure AD integration later
-- Can consolidate with other GN apps
+- Can consolidate with other Contoso apps
 
 **Migration Path:**
 ```
@@ -1430,7 +1430,7 @@ Week 5+: Production use on Azure
 
 **Options:**
 1. **Cloudflare Pages** (Recommended for MVP)
-   - ✅ Proven (ExcelMate uses it)
+   - ✅ Proven (OpenExcel uses it)
    - ✅ Fast deployment
    - ❌ Not Azure-native
 
@@ -1624,7 +1624,7 @@ presentation.pptx (zip archive)
 **API Key Storage:**
 - localStorage is origin-scoped (secure)
 - HTTPS enforced by Office.js
-- Keys never transmitted to GN servers
+- Keys never transmitted to Contoso servers
 - Consider encryption at rest (future enhancement)
 
 ### 8.4 Performance Benchmarks
@@ -1652,7 +1652,7 @@ presentation.pptx (zip archive)
 ### Key Takeaways
 
 1. ✅ **MVP is 70% complete** - Can deploy today with existing tools
-2. ✅ **ExcelMate infrastructure 100% reusable** - Same framework, proven deployment
+2. ✅ **OpenExcel infrastructure 100% reusable** - Same framework, proven deployment
 3. ✅ **Quick wins available** - 3 upstream tools in 1-2 days (no dependencies)
 4. ⚠️ **OOXML features require investment** - 2-3 days for charts/masters (pilot feedback needed)
 5. ✅ **Low-risk deployment path** - Cloudflare MVP → Azure production

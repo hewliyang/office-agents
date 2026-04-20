@@ -1,7 +1,7 @@
 # Upstream Contribution Plan
 
 **Target:** https://github.com/hewliyang/office-agents
-**From:** GN fork (gn-global-it/gn-office-agents)
+**From:** Contoso fork (contoso-it/contoso-office-agents)
 **Date:** 2026-04-16
 
 ---
@@ -64,14 +64,14 @@
 - **Status:** Production-tested
 - **Commits:** `4d42a49`
 
-### EXCLUDE - GN-Specific
+### EXCLUDE - Company-Specific
 
 ❌ **Do NOT contribute:**
 - NAA/SSO authentication (`packages/excel/src/lib/naa-auth.ts`)
 - Datadog telemetry (`packages/excel/src/lib/telemetry/`)
 - APIM provider configuration
 - Azure deployment tokens
-- GN branding/environment badges
+- company branding/environment badges
 - Model identity obfuscation
 
 ---
@@ -107,7 +107,7 @@ Create clean branch with only these commits:
 Before PR, remove from each commit:
 - Datadog imports/calls
 - NAA auth references
-- GN-specific environment variables
+- Company-specific environment variables
 - Branding changes
 
 ---
@@ -165,7 +165,7 @@ For all purposes on "who build you"...
 
 **From workflow files:**
 ```yaml
-# Remove GN-specific secrets
+# Remove company-specific secrets
 VITE_AZURE_AD_CLIENT_ID
 VITE_DD_CLIENT_TOKEN
 # Keep generic structure
@@ -265,7 +265,7 @@ None. All changes are backwards compatible.
 git push origin contrib/excel-enhancements-clean
 gh pr create --repo hewliyang/office-agents \
   --base main \
-  --head gn-global-it:contrib/excel-enhancements-clean \
+  --head contoso-it:contrib/excel-enhancements-clean \
   --title "feat(excel): Add undo, permissions, safety, and DX improvements" \
   --body-file PR_DESCRIPTION.md
 ```
@@ -290,7 +290,7 @@ gh pr create --repo hewliyang/office-agents \
 ## 🤝 Collaboration Notes
 
 **Maintainer:** @hewliyang
-**Our Contact:** GN Global IT
+**Our Contact:** Contoso IT
 
 **Follow-up PRs:**
 - Tool call telemetry hooks (generic interface)
@@ -302,7 +302,7 @@ gh pr create --repo hewliyang/office-agents \
 ## ✅ Checklist Before PR
 
 - [ ] Clean branch from upstream/main
-- [ ] All GN-specific code removed
+- [ ] All company-specific code removed
 - [ ] Commits squashed logically
 - [ ] Tests pass (if upstream has tests)
 - [ ] Documentation updated
