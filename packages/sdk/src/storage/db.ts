@@ -49,7 +49,7 @@ let dbPromise: Promise<IDBPDatabase<OfficeAgentsSchema>> | null = null;
 let dbKey: string | null = null;
 let useMemoryFallback = false;
 
-// @GNMod: In-memory fallback for when IndexedDB is blocked (e.g., PowerPoint Online)
+// NOTE: In-memory fallback for when IndexedDB is blocked (e.g., PowerPoint Online)
 const memoryStore: {
   sessions: Map<string, ChatSession>;
   vfsFiles: Map<string, VfsFile>;
@@ -91,7 +91,7 @@ async function getDb(
     });
     return await dbPromise;
   } catch (error) {
-    // @GNMod: IndexedDB blocked (PowerPoint Online with tracking protection)
+    // NOTE: IndexedDB blocked (PowerPoint Online with tracking protection)
     console.warn("[DB] IndexedDB unavailable, using in-memory fallback:", error);
     useMemoryFallback = true;
     dbPromise = null;
@@ -153,7 +153,7 @@ export async function listSessions(
 ): Promise<ChatSession[]> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const sessions = [...memoryStore.sessions.values()]
       .filter(s => s.workbookId === workbookId);
@@ -192,7 +192,7 @@ export async function createSession(
     updatedAt: now,
   };
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     memoryStore.sessions.set(session.id, session);
     return session;
@@ -208,7 +208,7 @@ export async function getSession(
 ): Promise<ChatSession | undefined> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const session = memoryStore.sessions.get(sessionId);
     if (session && !session.agentMessages) {
@@ -237,7 +237,7 @@ export async function saveSession(
   );
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const session = memoryStore.sessions.get(sessionId);
     if (!session) {
@@ -285,7 +285,7 @@ export async function renameSession(
 ): Promise<void> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const session = memoryStore.sessions.get(sessionId);
     if (session) {
@@ -306,7 +306,7 @@ export async function deleteSession(
 ): Promise<void> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     memoryStore.sessions.delete(sessionId);
     return;
@@ -336,7 +336,7 @@ export async function saveVfsFiles(
   console.log("[DB] saveVfsFiles:", sessionId, "files:", files.length);
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     // Delete existing files for this session
     for (const [key, file] of memoryStore.vfsFiles) {
@@ -380,7 +380,7 @@ export async function loadVfsFiles(
 ): Promise<{ path: string; data: Uint8Array }[]> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const rows = [...memoryStore.vfsFiles.values()]
       .filter(f => f.sessionId === sessionId);
@@ -399,7 +399,7 @@ export async function deleteVfsFiles(
 ): Promise<void> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     for (const [key, file] of memoryStore.vfsFiles) {
       if (file.sessionId === sessionId) {
@@ -424,7 +424,7 @@ export async function saveSkillFiles(
 ): Promise<void> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     for (const [key, file] of memoryStore.skillFiles) {
       if (file.skillName === skillName) {
@@ -466,7 +466,7 @@ export async function loadSkillFiles(
 ): Promise<{ path: string; data: Uint8Array }[]> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const rows = [...memoryStore.skillFiles.values()]
       .filter(f => f.skillName === skillName);
@@ -482,7 +482,7 @@ export async function loadAllSkillFiles(
 ): Promise<{ skillName: string; path: string; data: Uint8Array }[]> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const rows = [...memoryStore.skillFiles.values()];
     return rows.map((r) => ({
@@ -506,7 +506,7 @@ export async function deleteSkillFiles(
 ): Promise<void> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     for (const [key, file] of memoryStore.skillFiles) {
       if (file.skillName === skillName) {
@@ -527,7 +527,7 @@ export async function deleteSkillFiles(
 export async function listSkillNames(ns: StorageNamespace): Promise<string[]> {
   const db = await getDb(ns);
 
-  // @GNMod: Memory fallback
+  // NOTE: Memory fallback
   if (!db) {
     const names = new Set([...memoryStore.skillFiles.values()].map((r) => r.skillName));
     return [...names].sort();
