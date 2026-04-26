@@ -36,6 +36,7 @@
     "@office-agents/bridge": "workspace:*",
     "@types/node": "^25.1.0",
     "happy-dom": "^20.8.4",
+    "office-addin-dev-certs": "^2.0.6",
     "svelte-check": "^4.3.3",
     "typescript": "^5.4.2",
     "vitest": "^4.0.18",
