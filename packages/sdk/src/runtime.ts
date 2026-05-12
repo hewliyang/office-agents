@@ -3,7 +3,7 @@ import {
   type AgentEvent,
   type ThinkingLevel as AgentThinkingLevel,
   type AgentTool,
-} from "@mariozechner/pi-agent-core";
+} from "@earendil-works/pi-agent-core";
 import {
   type Api,
   type AssistantMessage,
@@ -12,7 +12,7 @@ import {
   getProviders,
   type Model,
   streamSimple,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
 import type { AgentContext, StorageNamespace } from "./context";
 import {
   agentMessagesToChatMessages,

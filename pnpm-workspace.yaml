@@ -2,5 +2,5 @@ packages:
   - "packages/*"
 
 catalog:
-  "@mariozechner/pi-agent-core": "^0.67.6"
-  "@mariozechner/pi-ai": "^0.67.6"
+  "@earendil-works/pi-agent-core": "^0.74.0"
+  "@earendil-works/pi-ai": "^0.74.0"

@@ -1,11 +1,11 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type {
   AssistantMessage,
   ImageContent,
   TextContent,
   ToolResultMessage,
   UserMessage,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
 
 export type ToolCallStatus = "pending" | "running" | "complete" | "error";
 

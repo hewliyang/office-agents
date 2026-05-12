@@ -35,8 +35,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "catalog:",
-    "@mariozechner/pi-ai": "catalog:",
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
     "@mozilla/readability": "^0.6.0",
     "@sinclair/typebox": "^0.34.48",
     "@types/turndown": "^5.0.6",

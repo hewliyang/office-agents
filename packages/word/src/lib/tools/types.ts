@@ -1,4 +1,4 @@
-import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
+import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { resizeImage } from "@office-agents/core";
 import type { Static, TObject } from "@sinclair/typebox";
 

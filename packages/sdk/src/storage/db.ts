@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { UserMessage } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { UserMessage } from "@earendil-works/pi-ai";
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { StorageNamespace } from "../context";
 import { stripEnrichment } from "../message-utils";

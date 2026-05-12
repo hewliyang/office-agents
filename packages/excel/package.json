@@ -18,8 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "catalog:",
-    "@mariozechner/pi-ai": "catalog:",
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
     "@office-agents/core": "workspace:*",
     "@sinclair/typebox": "^0.34.48",
     "just-bash": "^2.7.0",

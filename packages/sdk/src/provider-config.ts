@@ -1,4 +1,4 @@
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { StorageNamespace } from "./context";
 import { loadOAuthCredentials } from "./oauth";
 
