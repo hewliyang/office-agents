@@ -1,6 +1,6 @@
 {
   "name": "@office-agents/sdk",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "description": "Headless SDK for Office Agents — agent runtime, tools, storage, VFS, skills, OAuth, and provider config for building AI-powered Office Add-ins",
   "license": "MIT",
