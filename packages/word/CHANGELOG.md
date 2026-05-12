@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-05-12
+
 ### Changed
 
 - **Upgrade `pi-ai` / `pi-agent-core`** — Migrated from `@mariozechner/pi-ai` (deprecated) to `@earendil-works/pi-ai` `^0.74.0`. Adds `gpt-5.5` and other latest models to the picker.
