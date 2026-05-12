@@ -79,22 +79,25 @@ function getDb(
 
 function extractUserText(msg: AgentMessage): string | null {
   if (msg.role !== "user") return null;
-  const text = stripEnrichment((msg as UserMessage).content).trim();
+  const userMsg = msg as unknown as UserMessage;
+  const text = stripEnrichment(userMsg.content).trim();
   return text || null;
 }
 
 function deriveSessionName(agentMessages: AgentMessage[]): string | null {
   const firstUser = agentMessages.find((m) => m.role === "user");
   if (!firstUser) return null;
-  const text = extractUserText(firstUser);
+  const text = extractUserText(firstUser as unknown as AgentMessage);
   if (!text) return null;
   return text.length > 40 ? `${text.slice(0, 37)}...` : text;
 }
 
 export function getSessionMessageCount(session: ChatSession): number {
-  return (session.agentMessages ?? []).filter(
-    (m) => m.role === "user" || m.role === "assistant",
-  ).length;
+  const msgs = session.agentMessages ?? [];
+  return msgs.filter((m) => {
+    const r = (m as unknown as { role: string }).role;
+    return r === "user" || r === "assistant" || r === "compactionSummary";
+  }).length;
 }
 
 export async function getOrCreateDocumentId(

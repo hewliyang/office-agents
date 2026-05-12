@@ -1,12 +1,14 @@
 import {
   Agent,
   type AgentEvent,
+  type AgentMessage,
   type ThinkingLevel as AgentThinkingLevel,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
 import {
   type Api,
   type AssistantMessage,
+  type UserMessage,
   getModel,
   getModels,
   getProviders,
@@ -19,7 +21,9 @@ import {
   type ChatMessage,
   deriveStats,
   extractPartsFromAssistantMessage,
+  filterMessagesForLLM,
   generateId,
+  isContextOverflow,
   type SessionStats,
 } from "./message-utils";
 import {
@@ -78,6 +82,7 @@ export interface UploadedFile {
 export interface RuntimeState {
   messages: ChatMessage[];
   isStreaming: boolean;
+  isCompacting: boolean;
   error: string | null;
   providerConfig: ProviderConfig | null;
   sessionStats: SessionStats;
@@ -137,6 +142,7 @@ export class AgentRuntime {
     this.state = {
       messages: [],
       isStreaming: false,
+      isCompacting: false,
       error: null,
       providerConfig: validConfig,
       sessionStats: INITIAL_STATS,
@@ -265,12 +271,19 @@ export class AgentRuntime {
             assistantMsg.stopReason === "aborted";
           const streamId = this.streamingMessageId;
 
+          // Check for context overflow
+          const contextWindow = this.state.sessionStats.contextWindow;
+          const overflow =
+            isError &&
+            contextWindow > 0 &&
+            isContextOverflow(assistantMsg as unknown as AssistantMessage, contextWindow);
+
           this.updateMessages(
             (msgs) => {
               const messages = [...msgs];
               const idx = messages.findIndex((m) => m.id === streamId);
 
-              if (isError) {
+              if (overflow || isError) {
                 if (idx !== -1) {
                   messages.splice(idx, 1);
                 }
@@ -284,9 +297,11 @@ export class AgentRuntime {
               return messages;
             },
             {
-              error: isError
-                ? assistantMsg.errorMessage || "Request failed"
-                : this.state.error,
+              error: overflow
+                ? null // Clear overflow errors
+                : isError
+                  ? assistantMsg.errorMessage || "Request failed"
+                  : this.state.error,
               sessionStats: isError
                 ? this.state.sessionStats
                 : {
@@ -296,6 +311,15 @@ export class AgentRuntime {
             },
           );
           this.streamingMessageId = null;
+
+          // Trigger compaction if overflow detected
+          if (overflow) {
+            console.log("[Runtime] Context overflow detected, running compaction...");
+            this.runCompaction().then(() => {
+              // Retry the last user message after compaction
+              this.retryAfterCompaction();
+            });
+          }
         }
         break;
       }
@@ -444,6 +468,9 @@ export class AgentRuntime {
     const proxiedModel = applyProxyToModel(baseModel, config);
     const existingMessages = this.agent?.state.messages ?? [];
 
+    // Filter messages for LLM context if there's a compactionSummary
+    const filteredMessages = filterMessagesForLLM(existingMessages);
+
     if (this.agent) {
       this.agent.abort();
     }
@@ -459,7 +486,7 @@ export class AgentRuntime {
         systemPrompt,
         thinkingLevel: thinkingLevelToAgent(config.thinking),
         tools: this.tools,
-        messages: existingMessages,
+        messages: filteredMessages,
       },
       streamFn: async (model, context, options) => {
         const cfg = this.config ?? config;
@@ -876,8 +903,124 @@ export class AgentRuntime {
     }
   }
 
-  dispose() {
+dispose() {
     this.agent?.abort();
     this.listeners.clear();
+  }
+
+  /**
+   * Runs context compaction: summarizes old messages and inserts a compactionSummary.
+   * This is triggered when context overflow is detected.
+   */
+  async runCompaction(): Promise<void> {
+    if (!this.agent || !this.config || this.state.isCompacting) {
+      return;
+    }
+
+    const messages = this.agent.state.messages;
+    if (messages.length < 4) {
+      return;
+    }
+
+    this.update({ isCompacting: true });
+
+    try {
+      const cutoffIdx = Math.max(0, messages.length - 3);
+      const messagesToCompress = messages.slice(0, cutoffIdx);
+
+      // Build the conversation text for summarization
+      let conversationText = "";
+      for (const m of messagesToCompress) {
+        const role = m.role;
+        if (role === "user") {
+          const userMsg = m as unknown as { content: unknown };
+          const c = userMsg.content as unknown;
+          const txt = typeof c === "string" ? c : (c as { type: string; text: string }[])?.map((x) => x.text).join("") || "";
+          conversationText += `User: ${txt}\n\n`;
+        } else if (role === "assistant") {
+          const asstMsg = m as unknown as { content: unknown };
+          const c = asstMsg.content as unknown;
+          const txt = typeof c === "string" ? c.slice(0, 300) : (c as { type: string; text: string }[])?.map((x) => x.text).join("").slice(0, 300) || "";
+          conversationText += `Assistant: ${txt}\n\n`;
+        }
+      }
+
+      const summaryPrompt = `Summarize this conversation concisely:\n\n${conversationText}`;
+
+      // Call the LLM directly for summarization
+      await this.agent.prompt(summaryPrompt);
+
+      // Wait for summary to complete (simple delay for now)
+      await new Promise((r) => setTimeout(r, 1000));
+
+      // Get the summary from the last assistant message
+      const allMsgs = this.agent.state.messages;
+      const lastMsg = allMsgs[allMsgs.length - 1];
+      let summary = "Summary of previous conversation";
+
+      if (lastMsg && (lastMsg as unknown as { role: string }).role === "assistant") {
+        const am = lastMsg as unknown as { content: unknown };
+        const c = am.content as unknown;
+        if (typeof c === "string") {
+          summary = c.slice(0, 500);
+        } else {
+          summary = (c as { type: string; text: string }[])?.map((x) => x.text).join("").slice(0, 500) || summary;
+        }
+      }
+
+      // Create and insert the compactionSummary message
+      const compactionMsg = {
+        role: "compactionSummary",
+        summary,
+        content: [{ type: "text", text: summary }],
+        timestamp: Date.now(),
+      } as unknown as AgentMessage;
+
+      const newMessages: AgentMessage[] = [compactionMsg, ...messages.slice(cutoffIdx)];
+      this.agent.state.messages = newMessages;
+
+      // Update UI
+      this.update({
+        messages: agentMessagesToChatMessages(newMessages, this.adapter.metadataTag),
+        isCompacting: false,
+      });
+
+      // Save session
+      if (this.currentSessionId) {
+        const db = await import("./storage");
+        await db.saveSession(this.ns, this.currentSessionId, newMessages);
+      }
+    } catch (err) {
+      console.error("[Runtime] Compaction failed:", err);
+      this.update({ isCompacting: false, error: "Context compaction failed" });
+    }
+  }
+
+  private async retryAfterCompaction(): Promise<void> {
+    // Find the last user message to retry
+    const messages = this.state.messages;
+    let lastUserMsg: ChatMessage | null = null;
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserMsg = messages[i];
+        break;
+      }
+    }
+
+    if (!lastUserMsg) {
+      return;
+    }
+
+    // Get the text content
+    const textPart = lastUserMsg.parts.find((p) => p.type === "text");
+    if (!textPart || textPart.type !== "text") {
+      return;
+    }
+
+    console.log("[Runtime] Retrying message after compaction:", textPart.text);
+
+    // Re-send the message
+    await this.sendMessage(textPart.text);
   }
 }

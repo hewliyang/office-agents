@@ -29,6 +29,9 @@ importers:
       happy-dom:
         specifier: ^20.8.4
         version: 20.8.4
+      office-addin-dev-certs:
+        specifier: ^2.0.6
+        version: 2.0.6
       svelte-check:
         specifier: ^4.3.3
         version: 4.4.5(picomatch@4.0.3)(svelte@5.54.0)(typescript@5.9.3)
